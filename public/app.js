@@ -6,7 +6,7 @@ async function api(u,o={}){const opt={method:o.method||(o.body?'POST':'GET'),hea
 const stars=n=>n==null?'<span class="muted">No ratings yet</span>':`<span class="stars">${'★'.repeat(Math.round(n))}${'☆'.repeat(5-Math.round(n))}</span> <b>${n}</b>`;
 const av=(u,c='')=>u?.photo?`<img class="av ${c}" src="${u.photo}">`:`<div class="av ${c}">${esc((u?.name||'?')[0].toUpperCase())}</div>`;
 const tm=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
-let GEO=null;const geo=async()=>GEO||(GEO=await fetch('/geo.json').then(r=>r.json()));const AREAS=c=>(GEO&&GEO.areas[c])||[];
+let GEO=null;const geo=async()=>{if(GEO)return GEO;try{const r=await fetch('/geo.json',{credentials:'same-origin'});if(!r.ok)throw 0;GEO=await r.json()}catch(e){return GEO={countries:['South Africa'],areas:{'South Africa':PROV}},GEO}return GEO};const AREAS=c=>(GEO&&GEO.areas[c])||[];
 const DISC='Swap at your own risk. Cannabis laws differ by country and region — only swap where it is legal for you. Bud Share does not allow sales.';
 const discBox=()=>`<div class="disc">⚠️ ${DISC}</div>`;
 const loc=u=>esc([u.town,u.province].filter(Boolean).join(', '))+((u.country||'South Africa')!=((ME&&ME.country)||'South Africa')?' · '+esc(u.country):'');
