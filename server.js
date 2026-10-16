@@ -9,14 +9,14 @@ app.use((q,r,n)=>{r.set('X-Robots-Tag','noindex, nofollow, noarchive');n()});
 app.get('/healthz',(q,r)=>r.send('ok'));
 app.get('/robots.txt',(q,r)=>r.type('text/plain').send('User-agent: *\nDisallow: /\n'));
 const SU=process.env.SITE_USER,SP=process.env.SITE_PASS,GATE=SU&&SP?crypto.createHmac('sha256',SP).update('gate:'+SU).digest('hex'):null;
-const OPEN=/^\/(healthz|manifest\.json|icon-(maskable-)?(192|512)\.png|apple-touch-icon\.png|favicon\.ico|og-image\.png|whoomph-logo\.png|robots\.txt|sw\.js)$/;
+const OPEN=/^\/(healthz|manifest\.json|icon-(maskable-)?(192|512)\.png|apple-touch-icon\.png|favicon\.ico|og-image\.png|whoomph-logo(-[0-9a-f]+)?\.png|robots\.txt|sw\.js)$/;
 const eq=(a,b)=>{a=Buffer.from(String(a));b=Buffer.from(String(b));return a.length==b.length&&crypto.timingSafeEqual(a,b)};
 app.get('/join',(q,r,n)=>{const c=String(q.query.ref||'').toUpperCase().slice(0,20);const u=c&&db.users.find(x=>x.code==c&&!x.banned&&!x.deleted);
  if(!u)return n();if(GATE)r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});r.redirect(302,'/?ref='+encodeURIComponent(c)+'#/signup')});
 app.use((q,r,n)=>{if(!GATE||OPEN.test(q.path))return n();const c=(q.headers.cookie||'').match(/(?:^|;\s*)bsgate=([a-f0-9]+)/);if(c&&eq(c[1],GATE))return n();
  const h=q.headers.authorization||'';if(h.startsWith('Basic ')){const[u,...pw]=Buffer.from(h.slice(6),'base64').toString().split(':');if(eq(u,SU)&&eq(pw.join(':'),SP)){r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});return n()}}
  r.set('WWW-Authenticate','Basic realm="Bud Share private test", charset="UTF-8"').status(401).type('text/plain').send('Bud Share is a private test environment. Access code required.')});
-app.use(express.static(path.join(__dirname,'public')));app.get('/uploads/*name',async(q,r,n)=>{if(!store.pg)return n();try{const nm=[].concat(q.params.name).join('/');const f=await store.getFile(nm);if(!f)return r.status(404).end();r.set('Content-Type',f.mime).set('Cache-Control','private, max-age=31536000, immutable').send(f.data)}catch(e){r.status(500).end()}});
+app.use(express.static(path.join(__dirname,'public'),{setHeaders:(r,f)=>{const b=path.basename(f);if(b=='index.html'||b=='sw.js'||b=='manifest.json')r.setHeader('Cache-Control','no-cache, no-store, must-revalidate');else if(/-[0-9a-f]{8}\.png$/.test(b))r.setHeader('Cache-Control','public, max-age=31536000, immutable')}}));app.get('/uploads/*name',async(q,r,n)=>{if(!store.pg)return n();try{const nm=[].concat(q.params.name).join('/');const f=await store.getFile(nm);if(!f)return r.status(404).end();r.set('Content-Type',f.mime).set('Cache-Control','private, max-age=31536000, immutable').send(f.data)}catch(e){r.status(500).end()}});
 app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 const up=multer({storage:multer.diskStorage({destination:'uploads',filename:(r,f,cb)=>cb(null,Date.now()+'-'+crypto.randomBytes(4).toString('hex')+path.extname(f.originalname).toLowerCase())}),limits:{fileSize:15e6},fileFilter:(r,f,cb)=>cb(null,/^image\/|application\/pdf/.test(f.mimetype))});
 const toDb=async(q,r,n)=>{if(!store.pg)return n();try{const fl=[...(q.file?[q.file]:[]),...(Array.isArray(q.files)?q.files:Object.values(q.files||{}).flat())];
@@ -131,7 +131,7 @@ app.post('/api/swaps/:id/rate',auth,(q,r)=>{const w=SW(q,r);if(!w)return;const a
  db.ratings.push({id:id(),swapId:w.id,raterId:q.u.id,rateeId:a?w.bId:w.aId,strainId:a?w.bStrain:w.aStrain,flowerStars:f,memberStars:m,comment:q.body.comment||'',at:Date.now()});
  msg(w.id,q.u.id,'system',{text:`⭐ Rated flower ${f}/5 and member ${m}/5`});save();r.json({ok:1})});
 app.get('/api/strains/:id/reviews',auth,(q,r)=>r.json(db.ratings.filter(x=>x.strainId==q.params.id).map(x=>({...x,rater:pubU(U(x.raterId))||{name:'Removed member'}}))));
-app.use((q,r)=>r.sendFile(path.join(__dirname,'public/index.html')));
+app.use((q,r)=>{r.set('Cache-Control','no-cache, no-store, must-revalidate');r.sendFile(path.join(__dirname,'public/index.html'))});
 app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
 (async()=>{fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
  let ok=false;for(let i=1;i<=6;i++){try{ok=await store.init();break}catch(e){console.error(`DB connect failed (attempt ${i}/6):`,e.code||e.message);if(i==6)process.exit(1);await new Promise(r=>setTimeout(r,5000*i))}}
