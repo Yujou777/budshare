@@ -136,5 +136,6 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
    console.log('imported files',await store.importDir(path.join(__dirname,'uploads')));await store.flushNow(db)}
   db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
+ if(process.env.ADMIN_PASSWORD){const ad=db.users.find(u=>u.admin);if(ad&&!bcrypt.compareSync(process.env.ADMIN_PASSWORD,ad.pw)){ad.pw=bcrypt.hashSync(process.env.ADMIN_PASSWORD,10);console.log('Admin password synced from env')}}
  if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
  app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300))})();
