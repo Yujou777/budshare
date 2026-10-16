@@ -32,5 +32,5 @@ label{display:block;font-size:13px;color:var(--m);margin:12px 0 4px}input,select
 .tabs2{display:flex;border-bottom:1px solid var(--b)}.tabs2 a{flex:1;text-align:center;padding:12px;color:var(--m);text-decoration:none}.tabs2 a.on{color:var(--g2);border-bottom:3px solid var(--g2)}
 .thumbs{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.thumbs img{width:56px;height:56px;object-fit:cover;border-radius:6px}
 
-.brand{display:block;line-height:1.15}.brand b{font-size:28px}.brand .tag{font-weight:400;font-size:14px;opacity:.85}.brand small{display:block;font-size:11px;font-weight:400;opacity:.7;margin-top:2px}
-.brand small{display:flex;align-items:center;gap:6px}.wlogo{height:18px;width:auto}
+.brand{display:block;line-height:1.15}.brand b{font-size:28px}.brand .tag{font-weight:400;font-size:14px;opacity:.85}.brand small{display:block;font-size:11px;font-weight:400;margin-top:3px}
+.brand small{display:flex;align-items:center;gap:6px;opacity:1}.wlogo{height:22px;width:auto;border-radius:5px;display:block}
