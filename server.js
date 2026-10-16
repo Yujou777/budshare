@@ -2,7 +2,7 @@ const express=require('express'),multer=require('multer'),bcrypt=require('bcrypt
 const DBF=path.join(__dirname,'data/db.json');
 const store=require('./store');let db={users:[],strains:[],swaps:[],messages:[],ratings:[],reports:[],posts:[],comments:[],seq:1};
 const save=()=>store.pg?store.save(db):fs.writeFileSync(DBF,JSON.stringify(db));const id=()=>db.seq++;
-const REPORT_LIMIT=3,TYPES=['Indica','Sativa','Indica-leaning hybrid','Sativa-leaning hybrid','50/50'],METHODS=['Indoor','Outdoor','Greenhouse'];
+const DISCLAIMER="Swap at your own risk. Cannabis laws differ by country and region — only swap where it is legal for you. Bud Share does not allow sales.";const REPORT_LIMIT=3,TYPES=['Indica','Sativa','Indica-leaning hybrid','Sativa-leaning hybrid','50/50'],METHODS=['Indoor','Outdoor','Greenhouse'];
 const app=express();app.set('trust proxy',1);app.use(express.json());
 app.use(session({name:'bs',keys:[process.env.SECRET||'budshare-dev-secret'],maxAge:30*864e5,sameSite:'lax'}));
 app.use((q,r,n)=>{r.set('X-Robots-Tag','noindex, nofollow, noarchive');n()});
@@ -24,27 +24,30 @@ const toDb=async(q,r,n)=>{if(!store.pg)return n();try{const fl=[...(q.file?[q.fi
 const U=i=>db.users.find(u=>u.id==i&&!u.deleted),S=i=>db.strains.find(s=>s.id==i);
 const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10:null;
 const code=u=>u.code||(u.code=crypto.randomBytes(4).toString('hex').toUpperCase().slice(0,6));
-const pubU=u=>u&&({invitedBy:u.invitedBy&&db.users.find(x=>x.id==u.invitedBy)?{id:u.invitedBy,name:db.users.find(x=>x.id==u.invitedBy).name}:null,invitedCount:db.users.filter(x=>x.invitedBy==u.id).length,id:u.id,name:u.name,town:u.town,province:u.province,photo:u.photo,rating:avg(db.ratings.filter(r=>r.rateeId==u.id).map(r=>r.memberStars)),ratingCount:db.ratings.filter(r=>r.rateeId==u.id).length,reports:u.reports||0,joined:u.joined});
+const pubU=u=>u&&({invitedBy:u.invitedBy&&db.users.find(x=>x.id==u.invitedBy)?{id:u.invitedBy,name:db.users.find(x=>x.id==u.invitedBy).name}:null,invitedCount:db.users.filter(x=>x.invitedBy==u.id).length,id:u.id,name:u.name,town:u.town,province:u.province,country:u.country||'South Africa',photo:u.photo,rating:avg(db.ratings.filter(r=>r.rateeId==u.id).map(r=>r.memberStars)),ratingCount:db.ratings.filter(r=>r.rateeId==u.id).length,reports:u.reports||0,joined:u.joined});
 const pubS=s=>({...s,flowerRating:avg(db.ratings.filter(r=>r.strainId==s.id).map(r=>r.flowerStars)),flowerRatingCount:db.ratings.filter(r=>r.strainId==s.id).length,labTested:!!s.coa,owner:pubU(U(s.userId))});
+const NEAR=['Same town','Same area','Same country','Other country'],cty=u=>u.country||'South Africa';
+const near=(o,m)=>cty(o)!=cty(m)?3:o.province!=m.province?2:(o.town||'').toLowerCase()==(m.town||'').toLowerCase()?0:1;
 const hasActive=uid=>db.strains.some(s=>s.userId==uid&&s.active);
 const auth=(q,r,n)=>{const u=U(q.session.uid);if(!u)return r.status(401).json({error:'Please log in'});if(u.banned)return r.status(403).json({error:'Account removed after repeated non-delivery reports'});q.u=u;n()};
 const grower=(q,r,n)=>q.u.admin||hasActive(q.u.id)?n():r.status(403).json({error:'grower_only',message:'List at least one active strain to browse and swap.'});
 const age=d=>{const b=new Date(d),n=new Date();let a=n.getFullYear()-b.getFullYear();if(n<new Date(n.getFullYear(),b.getMonth(),b.getDate()))a--;return a};
-app.post('/api/signup',(q,r)=>{const{email,password,name,dob,town,province,agree}=q.body||{};
+app.post('/api/signup',(q,r)=>{const{email,password,name,dob,town,province,agree,agreeRisk}=q.body||{};const country=String(q.body.country||'South Africa').slice(0,80);
  if(!email||!password||!name||!dob||!town||!province)return r.status(400).json({error:'All fields are required'});
  if(!agree)return r.status(400).json({error:'You must accept the terms'});
+ if(!agreeRisk)return r.status(400).json({error:'Please tick that you understand the swap-at-your-own-risk notice'});
  if(isNaN(new Date(dob))||age(dob)<18)return r.status(400).json({error:'You must be 18 or older to join'});
  if(password.length<6)return r.status(400).json({error:'Password must be at least 6 characters'});
  const e=email.trim().toLowerCase();const ex=db.users.find(u=>u.email==e);if(ex)return r.status(400).json({error:ex.banned?'This email was removed from Bud Share':'Email already registered'});
  const inv=q.body.ref&&db.users.find(x=>x.code&&x.code==String(q.body.ref).toUpperCase()&&!x.banned);
- const u={id:id(),email:e,invitedBy:inv?inv.id:null,pw:bcrypt.hashSync(password,8),name:name.trim(),dob,town:town.trim(),province,photo:null,reports:0,joined:Date.now()};db.users.push(u);save();q.session.uid=u.id;r.json({ok:1})});
+ const u={id:id(),email:e,invitedBy:inv?inv.id:null,pw:bcrypt.hashSync(password,8),name:name.trim(),dob,town:town.trim(),province:String(province).trim().slice(0,80),country,agreedRiskAt:Date.now(),photo:null,reports:0,joined:Date.now()};db.users.push(u);save();q.session.uid=u.id;r.json({ok:1})});
 app.post('/api/login',(q,r)=>{const u=db.users.find(u=>u.email==(q.body.email||'').trim().toLowerCase());if(!u||!bcrypt.compareSync(q.body.password||'',u.pw))return r.status(400).json({error:'Wrong email or password'});if(u.banned)return r.status(403).json({error:'Account removed after repeated non-delivery reports'});q.session.uid=u.id;r.json({ok:1})});
 app.post('/api/logout',(q,r)=>{q.session=null;r.json({ok:1})});
 app.get('/api/invite/:code',(q,r)=>{const u=db.users.find(x=>x.code==String(q.params.code).toUpperCase()&&!x.banned);r.json(u?{name:u.name}:{})});
 app.get('/api/me',auth,(q,r)=>r.json({...pubU(q.u),inviteCode:code(q.u),email:q.u.email,isGrower:hasActive(q.u.id),admin:!!q.u.admin,reasons:REASONS,reportLimit:REPORT_LIMIT}));
-app.post('/api/me',auth,up.single('photo'),toDb,(q,r)=>{const b=q.body;['name','town','province'].forEach(k=>b[k]&&(q.u[k]=b[k].trim()));if(q.file)q.u.photo='/uploads/'+q.file.filename;if(b.removePhoto)q.u.photo=null;save();r.json({ok:1})});
+app.post('/api/me',auth,up.single('photo'),toDb,(q,r)=>{const b=q.body;['name','town','province','country'].forEach(k=>b[k]&&(q.u[k]=b[k].trim().slice(0,80)));if(q.file)q.u.photo='/uploads/'+q.file.filename;if(b.removePhoto)q.u.photo=null;save();r.json({ok:1})});
 app.get('/api/users/:id',auth,(q,r)=>{const u=U(q.params.id);if(!u||u.banned)return r.status(404).json({error:'Not found'});r.json({user:pubU(u),strains:db.strains.filter(s=>s.userId==u.id&&s.active).map(pubS)})});
-app.get('/api/meta',(q,r)=>r.json({types:TYPES,methods:METHODS,reportLimit:REPORT_LIMIT}));
+app.get('/api/meta',(q,r)=>r.json({types:TYPES,methods:METHODS,reportLimit:REPORT_LIMIT,disclaimer:DISCLAIMER}));
 const sf=up.fields([{name:'flower'},{name:'dried'},{name:'extra'},{name:'coa',maxCount:1}]);
 const fl=(q,k)=>(q.files?.[k]||[]).map(f=>'/uploads/'+f.filename);
 app.get('/api/my/strains',auth,(q,r)=>r.json(db.strains.filter(s=>s.userId==q.u.id&&!s.removed).map(pubS)));
@@ -57,21 +60,21 @@ app.post('/api/strains/:id',auth,sf,toDb,(q,r)=>{const s=S(q.params.id);if(!s||s
  if(b.name)s.name=b.name;if(TYPES.includes(b.type))s.type=b.type;if(METHODS.includes(b.method))s.method=b.method;if('organic'in b)s.organic=b.organic=='true'||b.organic=='on';if('description'in b)s.description=b.description;if('active'in b)s.active=b.active=='true';
  s.flowerPhotos.push(...fl(q,'flower'));s.driedPhotos.push(...fl(q,'dried'));s.extraPhotos.push(...fl(q,'extra'));if(fl(q,'coa')[0])s.coa=fl(q,'coa')[0];if(b.removeCoa)s.coa=null;if(b.remove){s.removed=true;s.active=false}save();r.json(pubS(s))});
 app.get('/api/strains/:id',auth,(q,r)=>{const s=S(q.params.id);if(!s||s.removed)return r.status(404).json({error:'Not found'});if(s.userId!=q.u.id&&!hasActive(q.u.id))return r.status(403).json({error:'grower_only'});r.json(pubS(s))});
-app.get('/api/browse',auth,grower,(q,r)=>{const{type,method,organic,province,town,q:t,lab}=q.query;
+app.get('/api/browse',auth,grower,(q,r)=>{const{type,method,organic,province,town,q:t,lab,country}=q.query;
  let l=db.strains.filter(s=>s.active&&s.userId!=q.u.id&&U(s.userId)&&!U(s.userId).banned);
  if(type)l=l.filter(s=>s.type==type);if(method)l=l.filter(s=>s.method==method);if(organic)l=l.filter(s=>s.organic);if(lab)l=l.filter(s=>s.coa);
- if(province)l=l.filter(s=>U(s.userId).province==province);if(town)l=l.filter(s=>U(s.userId).town.toLowerCase().includes(town.toLowerCase()));
+ if(country)l=l.filter(s=>(U(s.userId).country||'South Africa')==country);if(province)l=l.filter(s=>U(s.userId).province==province);if(town)l=l.filter(s=>U(s.userId).town.toLowerCase().includes(town.toLowerCase()));
  if(t)l=l.filter(s=>(s.name+' '+s.description).toLowerCase().includes(t.toLowerCase()));
- const d=s=>{const o=U(s.userId);return o.town.toLowerCase()==q.u.town.toLowerCase()&&o.province==q.u.province?0:o.province==q.u.province?1:2};
- l=l.map(s=>({...pubS(s),distance:['Same town','Same province','Further away'][d(s)]}));
- l.sort(q.query.sort=='rating'?(a,b)=>(b.flowerRating||0)-(a.flowerRating||0):(a,b)=>['Same town','Same province','Further away'].indexOf(a.distance)-['Same town','Same province','Further away'].indexOf(b.distance)||(b.owner.rating||0)-(a.owner.rating||0));r.json(l)});
+ const d=s=>near(U(s.userId),q.u);
+ l=l.map(s=>({...pubS(s),distance:NEAR[d(s)]}));
+ l.sort(q.query.sort=='rating'?(a,b)=>(b.flowerRating||0)-(a.flowerRating||0):(a,b)=>NEAR.indexOf(a.distance)-NEAR.indexOf(b.distance)||(b.owner.rating||0)-(a.owner.rating||0));r.json(l)});
 const P=()=>db.posts=db.posts||[],C=()=>db.comments=db.comments||[];
 const pubP=(p,uid)=>({...p,likes:p.likes.length,liked:p.likes.includes(uid),comments:C().filter(c=>c.postId==p.id).length,author:pubU(U(p.userId)),strain:p.strainId&&S(p.strainId)&&!S(p.strainId).removed?pubS(S(p.strainId)):null});
-app.get('/api/feed',auth,grower,(q,r)=>{const{type,method,organic,province,town,lab,q:t}=q.query;let l=P().filter(p=>U(p.userId)&&!U(p.userId).banned);
+app.get('/api/feed',auth,grower,(q,r)=>{const{type,method,organic,province,town,lab,q:t,country}=q.query;let l=P().filter(p=>U(p.userId)&&!U(p.userId).banned);
  const sf=type||method||organic||lab;if(sf)l=l.filter(p=>{const x=p.strainId&&S(p.strainId);return x&&x.active&&(!type||x.type==type)&&(!method||x.method==method)&&(!organic||x.organic)&&(!lab||x.coa)});
- if(province)l=l.filter(p=>U(p.userId).province==province);if(town)l=l.filter(p=>U(p.userId).town.toLowerCase().includes(town.toLowerCase()));
+ if(country)l=l.filter(p=>(U(p.userId).country||'South Africa')==country);if(province)l=l.filter(p=>U(p.userId).province==province);if(town)l=l.filter(p=>U(p.userId).town.toLowerCase().includes(town.toLowerCase()));
  if(t)l=l.filter(p=>(p.text+' '+(p.strainId?S(p.strainId).name:'')).toLowerCase().includes(t.toLowerCase()));
- l=l.sort((a,b)=>b.at-a.at);if(q.query.sort=='near'){const d=p=>{const o=U(p.userId);return o.town.toLowerCase()==q.u.town.toLowerCase()&&o.province==q.u.province?0:o.province==q.u.province?1:2};l.sort((a,b)=>d(a)-d(b)||b.at-a.at)}
+ l=l.sort((a,b)=>b.at-a.at);if(q.query.sort=='near'){const d=p=>near(U(p.userId),q.u);l.sort((a,b)=>d(a)-d(b)||b.at-a.at)}
  r.json(l.slice(0,100).map(p=>pubP(p,q.u.id)))});
 app.post('/api/posts',auth,grower,up.array('photos',20),toDb,(q,r)=>{const text=(q.body.text||'').trim().slice(0,3000),photos=(q.files||[]).map(f=>'/uploads/'+f.filename);if(!text&&!photos.length)return r.status(400).json({error:'Write something or add a photo'});
  const cid=(q.body.clientId||'').slice(0,64),dup=P().find(p=>p.userId==q.u.id&&((cid&&p.clientId==cid)||(!p.strainId&&p.text==text&&p.photos.length==photos.length&&Date.now()-p.at<60000)));
@@ -114,7 +117,7 @@ app.post('/api/swaps/:id/counter',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w
  if(a){w.aGrams=mg;w.bGrams=tg}else{w.bGrams=mg;w.aGrams=tg}w.accA=a;w.accB=!a;
  msg(w.id,q.u.id,'offer',{text:`Counter-offer: ${mg}g of ${S(a?w.aStrain:w.bStrain).name} for ${tg}g of ${S(a?w.bStrain:w.aStrain).name}`});save();r.json({ok:1})});
 app.post('/api/swaps/:id/accept',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status!='negotiating')return r.status(400).json({error:'Not negotiable now'});
- w[w.aId==q.u.id?'accA':'accB']=true;if(w.accA&&w.accB){w.status='agreed';msg(w.id,q.u.id,'system',{text:`✅ Deal agreed: ${w.aGrams}g ${S(w.aStrain).name} ⇄ ${w.bGrams}g ${S(w.bStrain).name}. Share your courier & tracking details below.`})}else msg(w.id,q.u.id,'system',{text:'Accepted the offer'});save();r.json({ok:1})});
+ w[w.aId==q.u.id?'accA':'accB']=true;if(w.accA&&w.accB){w.status='agreed';msg(w.id,q.u.id,'system',{text:`✅ Deal agreed: ${w.aGrams}g ${S(w.aStrain).name} ⇄ ${w.bGrams}g ${S(w.bStrain).name}. Share your courier & tracking details below.`});msg(w.id,q.u.id,'system',{text:'⚠️ '+DISCLAIMER})}else msg(w.id,q.u.id,'system',{text:'Accepted the offer'});save();r.json({ok:1})});
 app.post('/api/swaps/:id/decline',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status!='negotiating')return r.status(400).json({error:'Cannot cancel after deal agreed'});w.status='cancelled';msg(w.id,q.u.id,'system',{text:'❌ Swap cancelled'});save();r.json({ok:1})});
 app.post('/api/swaps/:id/messages',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status=='cancelled')return r.status(400).json({error:'Swap cancelled'});const{text,courier,tracking,notes}=q.body;
  if(courier||tracking){if(w.status=='negotiating')return r.status(400).json({error:'Agree the deal first'});if(!courier||!tracking)return r.status(400).json({error:'Courier and tracking number required'});const sk=w.aId==q.u.id?'shipA':'shipB',prev=w[sk];w[sk+'History']=(w[sk+'History']||[]).concat(prev?[prev]:[]);w[sk]={courier,tracking,at:Date.now()};r.json(msg(w.id,q.u.id,'courier',{courier,tracking,notes:notes||'',updated:!!prev}))}
@@ -140,7 +143,7 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
    console.log('imported files',await store.importDir(path.join(__dirname,'uploads')));await store.flushNow(db)}
   db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
- db.users.forEach(u=>code(u));
+ db.users.forEach(u=>{code(u);if(!u.country)u.country='South Africa'});
  if(process.env.ADMIN_PASSWORD){const ad=db.users.find(u=>u.admin);if(ad&&!bcrypt.compareSync(process.env.ADMIN_PASSWORD,ad.pw)){ad.pw=bcrypt.hashSync(process.env.ADMIN_PASSWORD,10);console.log('Admin password synced from env')}}
  if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
  app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300))})();
