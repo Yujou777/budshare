@@ -43,7 +43,7 @@ ${mode=='signup'&&REF?`<div class="chip" style="margin-top:12px">🤝 Invited by
 ${mode=='signup'?`<div class="chk"><input type="checkbox" name="agree" id="ag" required><label for="ag" style="margin:0">I am 18+ and accept the <a href="#/terms">terms</a> (no sales, no money, private use)</label></div>`:''}
 <button class="btn">${mode=='signup'?'Create account':'Log in'}</button></form>${mode=='login'?'<p class="pad muted">Demo: thabo@demo.budshare / demo123</p>':''}`;
  $('#f').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.agree=!!d.agree;try{await api('/'+mode,{body:d});if(mode=='signup')localStorage.removeItem('bs_ref');await loadMe();location.hash='#/browse'}catch(x){toast(x.message)}}}
-let REF=new URLSearchParams(location.search).get('ref')||localStorage.getItem('bs_ref')||'',REFNAME='';if(REF){localStorage.setItem('bs_ref',REF);fetch('/api/invite/'+encodeURIComponent(REF)).then(r=>r.json()).then(j=>{REFNAME=j.name||'';if(location.hash=='#/signup')vAuth('signup')});if(location.pathname=='/join'){history.replaceState(null,'','/#/signup')}}
+let REF=new URLSearchParams(location.search).get('ref')||localStorage.getItem('bs_ref')||'',REFNAME='';if(REF){localStorage.setItem('bs_ref',REF);fetch('/api/invite/'+encodeURIComponent(REF)).then(r=>r.json()).then(j=>{REFNAME=j.name||'';if(location.hash=='#/signup')vAuth('signup')});if(location.pathname=='/join'||location.search){history.replaceState(null,'','/'+(location.hash||'#/signup'))}}
 async function loadMe(){try{ME=await api('/me');const s=await api('/swaps');ME.unread=s.reduce((a,b)=>a+b.unread,0)}catch(e){ME=null}}
 // ---------- browse
 let F={sort:'near'},VIEW='feed';

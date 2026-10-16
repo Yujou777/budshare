@@ -9,8 +9,10 @@ app.use((q,r,n)=>{r.set('X-Robots-Tag','noindex, nofollow, noarchive');n()});
 app.get('/healthz',(q,r)=>r.send('ok'));
 app.get('/robots.txt',(q,r)=>r.type('text/plain').send('User-agent: *\nDisallow: /\n'));
 const SU=process.env.SITE_USER,SP=process.env.SITE_PASS,GATE=SU&&SP?crypto.createHmac('sha256',SP).update('gate:'+SU).digest('hex'):null;
-const OPEN=/^\/(healthz|manifest\.json|icon-(192|512)\.png|og-image\.png|whoomph-logo\.png|robots\.txt|sw\.js)$/;
+const OPEN=/^\/(healthz|manifest\.json|icon-(maskable-)?(192|512)\.png|apple-touch-icon\.png|favicon\.ico|og-image\.png|whoomph-logo\.png|robots\.txt|sw\.js)$/;
 const eq=(a,b)=>{a=Buffer.from(String(a));b=Buffer.from(String(b));return a.length==b.length&&crypto.timingSafeEqual(a,b)};
+app.get('/join',(q,r,n)=>{const c=String(q.query.ref||'').toUpperCase().slice(0,20);const u=c&&db.users.find(x=>x.code==c&&!x.banned&&!x.deleted);
+ if(!u)return n();if(GATE)r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});r.redirect(302,'/?ref='+encodeURIComponent(c)+'#/signup')});
 app.use((q,r,n)=>{if(!GATE||OPEN.test(q.path))return n();const c=(q.headers.cookie||'').match(/(?:^|;\s*)bsgate=([a-f0-9]+)/);if(c&&eq(c[1],GATE))return n();
  const h=q.headers.authorization||'';if(h.startsWith('Basic ')){const[u,...pw]=Buffer.from(h.slice(6),'base64').toString().split(':');if(eq(u,SU)&&eq(pw.join(':'),SP)){r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});return n()}}
  r.set('WWW-Authenticate','Basic realm="Bud Share private test", charset="UTF-8"').status(401).type('text/plain').send('Bud Share is a private test environment. Access code required.')});
@@ -90,6 +92,8 @@ app.post('/api/users/:id/report',auth,(q,r)=>{const o=U(q.params.id);if(!o||o.id
  if(reason=='Non-delivery'&&!db.swaps.some(w=>((w.aId==q.u.id&&w.bId==o.id)||(w.bId==q.u.id&&w.aId==o.id))&&['agreed','completed'].includes(w.status)))return r.status(400).json({error:'Non-delivery can only be reported on an agreed swap with this member'});
  const x=fileReport(q.u.id,o,reason,note,swapId);if(x.dup)return r.status(400).json({error:'You already reported this member for that reason'});save();r.json({ok:1,removed:!!o.banned})});
 const admin=(q,r,n)=>q.u.admin?n():r.status(403).json({error:'Admins only'});
+app.post('/api/admin/users/:id/delete',auth,admin,(q,r)=>{const i=+q.params.id,u=db.users.find(x=>x.id==i);if(!u||u.admin)return r.status(400).json({error:'Cannot delete'});
+ db.users=db.users.filter(x=>x.id!=i);db.strains=db.strains.filter(x=>x.userId!=i);db.posts=(db.posts||[]).filter(x=>x.userId!=i);db.comments=(db.comments||[]).filter(x=>x.userId!=i);db.users.forEach(x=>{if(x.invitedBy==i)x.invitedBy=null});save();r.json({ok:1})});
 app.get('/api/admin/reports',auth,admin,(q,r)=>r.json(db.reports.slice().reverse().map(x=>{const a=db.users.find(u=>u.id==x.against),b=db.users.find(u=>u.id==x.by);return{...x,status:x.status||'open',againstUser:a&&{id:a.id,name:a.name,email:a.email,banned:!!a.banned,strikes:a.reports||0},byUser:b&&{id:b.id,name:b.name}}})));
 app.post('/api/admin/reports/:id',auth,admin,(q,r)=>{const x=db.reports.find(x=>x.id==q.params.id);if(!x)return r.status(404).json({error:'Not found'});
  if(q.body.action=='resolve')x.status='resolved';if(q.body.action=='remove'){const o=db.users.find(u=>u.id==x.against);o&&removeUser(o);x.status='resolved'}save();r.json({ok:1})});
@@ -136,6 +140,7 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
    console.log('imported files',await store.importDir(path.join(__dirname,'uploads')));await store.flushNow(db)}
   db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
+ db.users.forEach(u=>code(u));
  if(process.env.ADMIN_PASSWORD){const ad=db.users.find(u=>u.admin);if(ad&&!bcrypt.compareSync(process.env.ADMIN_PASSWORD,ad.pw)){ad.pw=bcrypt.hashSync(process.env.ADMIN_PASSWORD,10);console.log('Admin password synced from env')}}
  if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
  app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300))})();
