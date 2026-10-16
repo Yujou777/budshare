@@ -1,10 +1,10 @@
 const express=require('express'),multer=require('multer'),bcrypt=require('bcryptjs'),session=require('cookie-session'),fs=require('fs'),path=require('path'),crypto=require('crypto');
 const DBF=path.join(__dirname,'data/db.json');
-let db=fs.existsSync(DBF)?JSON.parse(fs.readFileSync(DBF)):{users:[],strains:[],swaps:[],messages:[],ratings:[],reports:[],seq:1};
-const save=()=>fs.writeFileSync(DBF,JSON.stringify(db));const id=()=>db.seq++;
+const store=require('./store');let db={users:[],strains:[],swaps:[],messages:[],ratings:[],reports:[],posts:[],comments:[],seq:1};
+const save=()=>store.pg?store.save(db):fs.writeFileSync(DBF,JSON.stringify(db));const id=()=>db.seq++;
 const REPORT_LIMIT=3,TYPES=['Indica','Sativa','Indica-leaning hybrid','Sativa-leaning hybrid','50/50'],METHODS=['Indoor','Outdoor','Greenhouse'];
 const app=express();app.set('trust proxy',1);app.use(express.json());
-app.use(session({name:'bs',keys:[process.env.SECRET||'budshare-secret-'+(db.secret||(db.secret=crypto.randomBytes(8).toString('hex')))],maxAge:30*864e5,sameSite:'lax'}));
+app.use(session({name:'bs',keys:[process.env.SECRET||'budshare-dev-secret'],maxAge:30*864e5,sameSite:'lax'}));
 app.use((q,r,n)=>{r.set('X-Robots-Tag','noindex, nofollow, noarchive');n()});
 app.get('/healthz',(q,r)=>r.send('ok'));
 app.get('/robots.txt',(q,r)=>r.type('text/plain').send('User-agent: *\nDisallow: /\n'));
@@ -14,8 +14,11 @@ const eq=(a,b)=>{a=Buffer.from(String(a));b=Buffer.from(String(b));return a.leng
 app.use((q,r,n)=>{if(!GATE||OPEN.test(q.path))return n();const c=(q.headers.cookie||'').match(/(?:^|;\s*)bsgate=([a-f0-9]+)/);if(c&&eq(c[1],GATE))return n();
  const h=q.headers.authorization||'';if(h.startsWith('Basic ')){const[u,...pw]=Buffer.from(h.slice(6),'base64').toString().split(':');if(eq(u,SU)&&eq(pw.join(':'),SP)){r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});return n()}}
  r.set('WWW-Authenticate','Basic realm="Bud Share private test", charset="UTF-8"').status(401).type('text/plain').send('Bud Share is a private test environment. Access code required.')});
-app.use(express.static(path.join(__dirname,'public')));app.use('/uploads',express.static(path.join(__dirname,'uploads')));
+app.use(express.static(path.join(__dirname,'public')));app.get('/uploads/*name',async(q,r,n)=>{if(!store.pg)return n();try{const nm=[].concat(q.params.name).join('/');const f=await store.getFile(nm);if(!f)return r.status(404).end();r.set('Content-Type',f.mime).set('Cache-Control','private, max-age=31536000, immutable').send(f.data)}catch(e){r.status(500).end()}});
+app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 const up=multer({storage:multer.diskStorage({destination:'uploads',filename:(r,f,cb)=>cb(null,Date.now()+'-'+crypto.randomBytes(4).toString('hex')+path.extname(f.originalname).toLowerCase())}),limits:{fileSize:15e6},fileFilter:(r,f,cb)=>cb(null,/^image\/|application\/pdf/.test(f.mimetype))});
+const toDb=async(q,r,n)=>{if(!store.pg)return n();try{const fl=[...(q.file?[q.file]:[]),...(Array.isArray(q.files)?q.files:Object.values(q.files||{}).flat())];
+ for(const f of fl){await store.putFile(f.filename,fs.readFileSync(f.path));fs.unlink(f.path,()=>{})}n()}catch(e){console.error('file save',e.code||e.message);r.status(500).json({error:'Could not save photo, try again'})}};
 const U=i=>db.users.find(u=>u.id==i&&!u.deleted),S=i=>db.strains.find(s=>s.id==i);
 const avg=a=>a.length?Math.round(a.reduce((x,y)=>x+y,0)/a.length*10)/10:null;
 const code=u=>u.code||(u.code=crypto.randomBytes(4).toString('hex').toUpperCase().slice(0,6));
@@ -37,18 +40,18 @@ app.post('/api/login',(q,r)=>{const u=db.users.find(u=>u.email==(q.body.email||'
 app.post('/api/logout',(q,r)=>{q.session=null;r.json({ok:1})});
 app.get('/api/invite/:code',(q,r)=>{const u=db.users.find(x=>x.code==String(q.params.code).toUpperCase()&&!x.banned);r.json(u?{name:u.name}:{})});
 app.get('/api/me',auth,(q,r)=>r.json({...pubU(q.u),inviteCode:code(q.u),email:q.u.email,isGrower:hasActive(q.u.id),admin:!!q.u.admin,reasons:REASONS,reportLimit:REPORT_LIMIT}));
-app.post('/api/me',auth,up.single('photo'),(q,r)=>{const b=q.body;['name','town','province'].forEach(k=>b[k]&&(q.u[k]=b[k].trim()));if(q.file)q.u.photo='/uploads/'+q.file.filename;if(b.removePhoto)q.u.photo=null;save();r.json({ok:1})});
+app.post('/api/me',auth,up.single('photo'),toDb,(q,r)=>{const b=q.body;['name','town','province'].forEach(k=>b[k]&&(q.u[k]=b[k].trim()));if(q.file)q.u.photo='/uploads/'+q.file.filename;if(b.removePhoto)q.u.photo=null;save();r.json({ok:1})});
 app.get('/api/users/:id',auth,(q,r)=>{const u=U(q.params.id);if(!u||u.banned)return r.status(404).json({error:'Not found'});r.json({user:pubU(u),strains:db.strains.filter(s=>s.userId==u.id&&s.active).map(pubS)})});
 app.get('/api/meta',(q,r)=>r.json({types:TYPES,methods:METHODS,reportLimit:REPORT_LIMIT}));
 const sf=up.fields([{name:'flower'},{name:'dried'},{name:'extra'},{name:'coa',maxCount:1}]);
 const fl=(q,k)=>(q.files?.[k]||[]).map(f=>'/uploads/'+f.filename);
 app.get('/api/my/strains',auth,(q,r)=>r.json(db.strains.filter(s=>s.userId==q.u.id&&!s.removed).map(pubS)));
-app.post('/api/strains',auth,sf,(q,r)=>{const b=q.body;
+app.post('/api/strains',auth,sf,toDb,(q,r)=>{const b=q.body;
  if(!b.name||!TYPES.includes(b.type)||!METHODS.includes(b.method))return r.status(400).json({error:'Name, strain type and grow method are required'});
  const flower=fl(q,'flower'),dried=fl(q,'dried');if(!flower.length||!dried.length)return r.status(400).json({error:'Add at least one photo of the plant in flower AND one of the dried bud'});
  const s={id:id(),userId:q.u.id,name:b.name.trim(),type:b.type,method:b.method,organic:b.organic=='true'||b.organic=='on',description:b.description||'',flowerPhotos:flower,driedPhotos:dried,extraPhotos:fl(q,'extra'),coa:fl(q,'coa')[0]||null,active:true,created:Date.now()};
  db.strains.push(s);(db.posts=db.posts||[]).push({id:id(),userId:q.u.id,text:'Just listed a new strain for swapping: '+s.name,photos:[...flower,...dried],strainId:s.id,likes:[],at:Date.now()});save();r.json(pubS(s))});
-app.post('/api/strains/:id',auth,sf,(q,r)=>{const s=S(q.params.id);if(!s||s.userId!=q.u.id)return r.status(404).json({error:'Not found'});const b=q.body;
+app.post('/api/strains/:id',auth,sf,toDb,(q,r)=>{const s=S(q.params.id);if(!s||s.userId!=q.u.id)return r.status(404).json({error:'Not found'});const b=q.body;
  if(b.name)s.name=b.name;if(TYPES.includes(b.type))s.type=b.type;if(METHODS.includes(b.method))s.method=b.method;if('organic'in b)s.organic=b.organic=='true'||b.organic=='on';if('description'in b)s.description=b.description;if('active'in b)s.active=b.active=='true';
  s.flowerPhotos.push(...fl(q,'flower'));s.driedPhotos.push(...fl(q,'dried'));s.extraPhotos.push(...fl(q,'extra'));if(fl(q,'coa')[0])s.coa=fl(q,'coa')[0];if(b.removeCoa)s.coa=null;if(b.remove){s.removed=true;s.active=false}save();r.json(pubS(s))});
 app.get('/api/strains/:id',auth,(q,r)=>{const s=S(q.params.id);if(!s||s.removed)return r.status(404).json({error:'Not found'});if(s.userId!=q.u.id&&!hasActive(q.u.id))return r.status(403).json({error:'grower_only'});r.json(pubS(s))});
@@ -68,9 +71,9 @@ app.get('/api/feed',auth,grower,(q,r)=>{const{type,method,organic,province,town,
  if(t)l=l.filter(p=>(p.text+' '+(p.strainId?S(p.strainId).name:'')).toLowerCase().includes(t.toLowerCase()));
  l=l.sort((a,b)=>b.at-a.at);if(q.query.sort=='near'){const d=p=>{const o=U(p.userId);return o.town.toLowerCase()==q.u.town.toLowerCase()&&o.province==q.u.province?0:o.province==q.u.province?1:2};l.sort((a,b)=>d(a)-d(b)||b.at-a.at)}
  r.json(l.slice(0,100).map(p=>pubP(p,q.u.id)))});
-app.post('/api/posts',auth,grower,up.array('photos',20),(q,r)=>{const text=(q.body.text||'').trim().slice(0,3000),photos=(q.files||[]).map(f=>'/uploads/'+f.filename);if(!text&&!photos.length)return r.status(400).json({error:'Write something or add a photo'});
+app.post('/api/posts',auth,grower,up.array('photos',20),toDb,(q,r)=>{const text=(q.body.text||'').trim().slice(0,3000),photos=(q.files||[]).map(f=>'/uploads/'+f.filename);if(!text&&!photos.length)return r.status(400).json({error:'Write something or add a photo'});
  const cid=(q.body.clientId||'').slice(0,64),dup=P().find(p=>p.userId==q.u.id&&((cid&&p.clientId==cid)||(!p.strainId&&p.text==text&&p.photos.length==photos.length&&Date.now()-p.at<60000)));
- if(dup){(q.files||[]).forEach(f=>fs.unlink(f.path,()=>{}));return r.json(pubP(dup,q.u.id))}
+ if(dup){return r.json(pubP(dup,q.u.id))}
  const p={id:id(),userId:q.u.id,clientId:cid||null,text,photos,strainId:null,likes:[],at:Date.now()};P().push(p);save();r.json(pubP(p,q.u.id))});
 app.post('/api/posts/:id/like',auth,(q,r)=>{const p=P().find(p=>p.id==q.params.id);if(!p)return r.status(404).json({error:'Not found'});const i=p.likes.indexOf(q.u.id);i<0?p.likes.push(q.u.id):p.likes.splice(i,1);save();r.json(pubP(p,q.u.id))});
 app.get('/api/posts/:id/comments',auth,(q,r)=>r.json(C().filter(c=>c.postId==q.params.id).map(c=>({...c,author:pubU(U(c.userId))||{name:'Removed member'}}))));
@@ -126,4 +129,11 @@ app.post('/api/swaps/:id/rate',auth,(q,r)=>{const w=SW(q,r);if(!w)return;const a
 app.get('/api/strains/:id/reviews',auth,(q,r)=>r.json(db.ratings.filter(x=>x.strainId==q.params.id).map(x=>({...x,rater:pubU(U(x.raterId))||{name:'Removed member'}}))));
 app.use((q,r)=>r.sendFile(path.join(__dirname,'public/index.html')));
 app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
-save();app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300));
+(async()=>{fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
+ if(await store.init().catch(e=>{console.error('DB connect failed:',e.code||e.message);process.exit(1)})){db=await store.load();
+  if(!db.users.length){console.log('DB empty - seeding demo data');require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF));
+   console.log('imported files',await store.importDir(path.join(__dirname,'uploads')));await store.flushNow(db)}
+  db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
+ else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
+ if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
+ app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300))})();

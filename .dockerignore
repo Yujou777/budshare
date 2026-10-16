@@ -6,3 +6,4 @@ uploads
 .git
 .env
 .site_pass
+.database_url

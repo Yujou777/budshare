@@ -6,3 +6,4 @@ uploads/*
 *.log
 .env
 .site_pass
+.database_url
