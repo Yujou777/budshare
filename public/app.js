@@ -8,7 +8,7 @@ const av=(u,c='')=>u?.photo?`<img class="av ${c}" src="${u.photo}">`:`<div class
 const tm=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
 const PROV=['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','North West','Northern Cape','Western Cape'];
 const opts=(a,sel,blank)=>(blank?`<option value="">${blank}</option>`:'')+a.map(x=>`<option ${x==sel?'selected':''}>${x}</option>`).join('');
-const BRAND=`<span class="brand"><b>Bud Share</b> <span class="tag">– craft growers network</span><small>By <img src="/whoomph-badge-76416e4d.png" alt="Whoomph" class="wlogo"></small></span>`;
+const BRAND=`<span class="brand"><b>Bud Share</b> <span class="tag">– craft growers network</span><small>By <img src="/whoomph-logo-51ce3664.png" alt="Whoomph" class="wlogo"></small></span>`;
 function shell(title,body,tab,back){clearInterval(poll);A.innerHTML=`<header>${back?`<button onclick="history.back()">‹</button>`:''}<h1>${title=='Bud Share'?BRAND:title}</h1></header>${body}`+(ME?`<nav>
  <a href="#/browse" class="${tab=='browse'?'on':''}"><span>🔍</span>Browse</a><a href="#/swaps" class="${tab=='swaps'?'on':''}"><span>💬</span>Swaps${ME.unread?`<i class="badge">${ME.unread}</i>`:''}</a>
  <a href="#/strains" class="${tab=='strains'?'on':''}"><span>🌿</span>My Strains</a><a href="#/profile" class="${tab=='profile'?'on':''}"><span>👤</span>Profile</a></nav>`:'')}
@@ -35,7 +35,7 @@ const terms=`<div class="pad"><h2>Bud Share terms</h2><ol>
 <li>Ratings must be honest and only come from members who actually received the flower.</li>
 <li>Bud Share is a meeting place for growers and does not handle, check or transport any product.</li></ol></div>`;
 // ---------- auth
-function vAuth(mode='login'){A.innerHTML=`<div class="hero"><img src="/icon-192.png" width="72" style="border-radius:16px"><h1>Bud Share</h1><div style="opacity:.9">craft growers network</div><div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px"><span>By</span><img src="/whoomph-badge-76416e4d.png" alt="Whoomph" style="height:26px;border-radius:6px"></div><div style="margin-top:10px;font-size:14px">Grower-to-grower swaps · 18+ · No sales</div></div>
+function vAuth(mode='login'){A.innerHTML=`<div class="hero"><img src="/icon-192.png" width="72" style="border-radius:16px"><h1>Bud Share</h1><div style="opacity:.9">craft growers network</div><div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px"><span>By</span><img src="/whoomph-logo-51ce3664.png" alt="Whoomph" style="height:26px"></div><div style="margin-top:10px;font-size:14px">Grower-to-grower swaps · 18+ · No sales</div></div>
 <div class="tabs2"><a href="#/login" class="${mode=='login'?'on':''}">Log in</a><a href="#/signup" class="${mode=='signup'?'on':''}">Join</a></div><form class="pad" id="f">
 ${mode=='signup'?`<label>Display name</label><input name="name" required><label>Date of birth (must be 18+)</label><input type="date" name="dob" required>
 <label>Town / city</label><input name="town" required><label>Province</label><select name="province" required>${opts(PROV,'','Choose…')}</select>`:''}
