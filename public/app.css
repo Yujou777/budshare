@@ -49,3 +49,10 @@ input,select,textarea{background:#1a1a1a;color:var(--t);border-color:#2c2c2c}
 .hero{background:#000}.deal .muted,.muted{color:#9aa5ab}a{color:#25D366}.row{color:var(--t)}
 #toast{background:#222}
 .card a.row[style*="f7faf8"]{background:#0f1a14!important}
+
+/* chat footer: actions above input, safe-area aware, no bottom nav in chat */
+body.in-chat #app{padding-bottom:0}
+.chatfoot{position:fixed;left:0;right:0;bottom:0;max-width:560px;margin:0 auto;z-index:7;background:var(--chat);border-top:1px solid var(--b);padding-bottom:env(safe-area-inset-bottom)}
+.chatfoot .acts{padding:8px 10px 2px;font-size:14px}.chatfoot .acts .btn.sm{margin:4px 6px 4px 0}
+.chatfoot .compose{position:static;padding:6px 8px 8px;background:transparent}
+.chat{padding-bottom:120px;min-height:calc(100vh - 60px)}

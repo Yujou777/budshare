@@ -10,7 +10,7 @@ const PROV=['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpu
 const opts=(a,sel,blank)=>(blank?`<option value="">${blank}</option>`:'')+a.map(x=>`<option ${x==sel?'selected':''}>${x}</option>`).join('');
 const LEAF=(c='lf')=>'<img src="/whoomph-leaf-fbfc610e.png" alt="" class="'+c+'">';
 const BRAND=`<span class="brand"><b>Bud Share</b> <span class="tag">– craft growers network</span><small>By <img src="/whoomph-logo-b70b4539.png" alt="Whoomph" class="wlogo"></small></span>`;
-function shell(title,body,tab,back){clearInterval(poll);A.innerHTML=`<header>${back?`<button onclick="history.back()">‹</button>`:''}<h1>${title=='Bud Share'?BRAND:title}</h1></header>${body}`+(ME?`<nav>
+function shell(title,body,tab,back){clearInterval(poll);document.body.classList.remove('in-chat');A.innerHTML=`<header>${back?`<button onclick="history.back()">‹</button>`:''}<h1>${title=='Bud Share'?BRAND:title}</h1></header>${body}`+(ME?`<nav>
  <a href="#/browse" class="${tab=='browse'?'on':''}"><span>🔍</span>Browse</a><a href="#/swaps" class="${tab=='swaps'?'on':''}"><span>💬</span>Swaps${ME.unread?`<i class="badge">${ME.unread}</i>`:''}</a>
  <a href="#/strains" class="${tab=='strains'?'on':''}"><span>${LEAF('lf-nav')}</span>My Strains</a><a href="#/profile" class="${tab=='profile'?'on':''}"><span>👤</span>Profile</a></nav>`:'')}
 function reportModal(u,swapId){modal(`<h3>Report ${esc(u.name)}</h3><label>Reason</label><select name="reason" required>${opts(ME.reasons,'','Choose…')}</select><label>Note (optional)</label><textarea name="note"></textarea><p class="muted">Non-delivery reports count toward automatic removal (${META.reportLimit} strikes). Other reports go to the Bud Share admins.</p>`,'Send report',async d=>{try{d.swapId=swapId;const r=await api(`/users/${u.id}/report`,{body:d});toast(r.removed?'Reported – member removed':'Report sent')}catch(e){toast(e.message)}},'red')}
@@ -108,15 +108,14 @@ async function vSwaps(){const l=await api('/swaps');ME.unread=l.reduce((a,b)=>a+
 async function vChat(id){clearInterval(poll);let lastTop='',lastHd='',lastId=0,built=false;
  const sending=async v=>{try{await api(`/swaps/${id}/messages`,{body:{text:v}});draw()}catch(e){toast(e.message)}};
  async function draw(force){const{swap:w,messages}=await api('/swaps/'+id);if(!location.hash.startsWith('#/chat/'+id))return;
- if(!built){built=true;A.innerHTML=`<header id="hd"></header><div id="top"></div><div class="chat" id="ch"></div><form class="compose" id="cf"><input id="ci" placeholder="Message" autocomplete="off" enterkeyhint="send"><button>➤</button></form>
- <nav><a href="#/browse"><span>🔍</span>Browse</a><a href="#/swaps" class="on"><span>💬</span>Swaps</a><a href="#/strains"><span>${LEAF('lf-nav')}</span>My Strains</a><a href="#/profile"><span>👤</span>Profile</a></nav>`;
+ if(!built){built=true;A.innerHTML=`<header id="hd"></header><div id="top"></div><div class="chat" id="ch"></div><div class="chatfoot" id="cfoot"><div class="acts" id="acts"></div><form class="compose" id="cf"><input id="ci" placeholder="Message" autocomplete="off" enterkeyhint="send"><button aria-label="Send">➤</button></form></div>`;document.body.classList.add("in-chat");
   $('#cf').onsubmit=e=>{e.preventDefault();const i=$('#ci'),v=i.value;if(v.trim()){i.value='';i.focus();sending(v)}}}
  const o=w.other;const fresh=messages.filter(m=>m.id>lastId);const body=fresh.map(m=>{const me=m.userId==ME.id;if(m.type=='system')return`<div class="sys">${esc(m.text)}</div>`;
-  if(m.type=='courier')return`<div class="b cour ${me?'me':''}">📦 <b>Courier details</b><br>Courier: <b>${esc(m.courier)}</b><br>Tracking #: <b>${esc(m.tracking)}</b>${m.notes?`<br>${esc(m.notes)}`:''}<time>${tm(m.at)}</time></div>`;
+  if(m.type=='courier')return`<div class="b cour ${me?'me':''}">📦 <b>Courier details${m.updated?' (updated)':''}</b><br>Courier: <b>${esc(m.courier)}</b><br>Tracking #: <b>${esc(m.tracking)}</b>${m.notes?`<br>${esc(m.notes)}`:''}<time>${tm(m.at)}</time></div>`;
   return`<div class="b ${m.type=='offer'?'offer':''} ${me?'me':''}">${m.type=='offer'?'🤝 ':''}${esc(m.text)}<time>${tm(m.at)}</time></div>`}).join('');
  let act='';if(w.status=='negotiating'){act=w.iAccepted?`<span class="muted">Waiting for ${esc(o.name)} to accept…</span> `:`<button class="btn sm" id="acc">✅ Accept</button>`;act+=`<button class="btn sm sec" id="ctr">↔ Counter</button><button class="btn sm sec" id="dec">Cancel</button>`}
- else if(w.status=='agreed'||w.status=='completed'){act=`<button class="btn sm sec" id="cour">📦 Share courier & tracking</button>`;
-  if(!w.myReceipt)act+=`<button class="btn sm" id="rec">Received</button><button class="btn sm red" id="nrec">Not received</button>`;
+ else if(w.status=='agreed'||w.status=='completed'){act=`<button class="btn sm sec" id="cour">📦 ${w.myShip?'Update':'Share'} courier & tracking</button>`;
+  if(!w.myReceipt)act+=`<button class="btn sm" id="rec">✅ Received</button>`+(w.theirShip?`<button class="btn sm red" id="nrec">Not received</button>`:`<span class="muted" style="display:block;margin-top:4px">"Not received" unlocks once ${esc(o.name)} shares tracking.</span>`);
   else if(w.myReceipt=='received'&&!w.iRated)act+=`<button class="btn sm" id="rate">⭐ Rate flower & member</button>`;
   else act+=`<span class="muted">You marked: ${w.myReceipt=='received'?'received':'NOT received (reported)'}</span>`}
  const hdH=`<button onclick="location.hash='#/swaps'">‹</button>${av(o,'s')}<div class="grow"><div style="font-weight:600">${esc(o.name)}</div><div style="font-size:12px">${o.rating?'★ '+o.rating:'No ratings'} · 📍 ${esc(o.town||'')}</div></div>${o.id?'<button id="rpt" title="Report user">🚩</button>':''}`;if(hdH!=lastHd){lastHd=hdH;$('#hd').innerHTML=hdH;$('#rpt')&&($('#rpt').onclick=()=>reportModal(o,w.id))}
@@ -124,7 +123,8 @@ async function vChat(id){clearInterval(poll);let lastTop='',lastHd='',lastId=0,b
  const ch=$('#ch'),nearBottom=innerHeight+scrollY>=document.body.scrollHeight-150;if(fresh.length){ch.insertAdjacentHTML('beforeend',body);lastId=fresh[fresh.length-1].id;if(nearBottom||force)scrollTo(0,document.body.scrollHeight)}
  const topH=`
  <div class="chead"><a href="#/strain/${w.myStrain.id}"><img src="${w.myStrain.flowerPhotos[0]}"></a><div class="grow" style="text-align:center;font-size:13px"><b>${w.myGrams}g</b> ${esc(w.myStrain.name)}<br>⇄<br><b>${w.theirGrams}g</b> ${esc(w.theirStrain.name)}</div><a href="#/strain/${w.theirStrain.id}"><img src="${w.theirStrain.flowerPhotos[0]}"></a></div>
- <div class="deal">${act}</div>`;if(topH==lastTop&&!force)return;lastTop=topH;$('#top').innerHTML=topH;
+ `;const sig=topH+act;if(sig==lastTop&&!force)return;lastTop=sig;$('#top').innerHTML=topH;const ac=$('#acts');ac.innerHTML=act;ac.style.display=act?'':'none';
+ const fit=()=>{const f=$('#cfoot');if(f)ch.style.paddingBottom=(f.offsetHeight+16)+'px'};fit();setTimeout(fit,50);
  const on=(i,f)=>$('#'+i)&&($('#'+i).onclick=f);const act2=async(p,b)=>{try{await api(`/swaps/${id}/${p}`,{body:b||{}});draw(1)}catch(e){toast(e.message)}};
   on('acc',()=>act2('accept'));on('dec',()=>confirm('Cancel this swap?')&&act2('decline'));
  on('ctr',()=>modal(`<h3>Counter-offer</h3><label>Grams of ${esc(w.myStrain.name)} you send</label><input name="myGrams" type="number" min="1" value="${w.myGrams}"><label>Grams of ${esc(w.theirStrain.name)} you get</label><input name="theirGrams" type="number" min="1" value="${w.theirGrams}">`,'Send counter',d=>act2('counter',d)));
