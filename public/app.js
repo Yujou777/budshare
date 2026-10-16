@@ -1,0 +1,170 @@
+const $=s=>document.querySelector(s),A=$('#app');let ME=null,META=null,poll=null;
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';clearTimeout(t._);t._=setTimeout(()=>t.style.display='none',2600)};
+async function api(u,o={}){const opt={method:o.method||(o.body?'POST':'GET'),headers:{}};if(o.body instanceof FormData)opt.body=o.body;else if(o.body){opt.body=JSON.stringify(o.body);opt.headers['Content-Type']='application/json'}
+ const r=await fetch('/api'+u,opt);const j=await r.json().catch(()=>({}));if(!r.ok){const e=new Error(j.message||j.error||'Error');e.code=j.error;e.status=r.status;throw e}return j}
+const stars=n=>n==null?'<span class="muted">No ratings yet</span>':`<span class="stars">${'★'.repeat(Math.round(n))}${'☆'.repeat(5-Math.round(n))}</span> <b>${n}</b>`;
+const av=(u,c='')=>u?.photo?`<img class="av ${c}" src="${u.photo}">`:`<div class="av ${c}">${esc((u?.name||'?')[0].toUpperCase())}</div>`;
+const tm=t=>new Date(t).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+const PROV=['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','North West','Northern Cape','Western Cape'];
+const opts=(a,sel,blank)=>(blank?`<option value="">${blank}</option>`:'')+a.map(x=>`<option ${x==sel?'selected':''}>${x}</option>`).join('');
+const BRAND=`<span class="brand"><b>Bud Share</b> <span class="tag">– craft growers network</span><small>By <img src="/whoomph-logo.png" alt="Whoomph" class="wlogo"></small></span>`;
+function shell(title,body,tab,back){clearInterval(poll);A.innerHTML=`<header>${back?`<button onclick="history.back()">‹</button>`:''}<h1>${title=='Bud Share'?BRAND:title}</h1></header>${body}`+(ME?`<nav>
+ <a href="#/browse" class="${tab=='browse'?'on':''}"><span>🔍</span>Browse</a><a href="#/swaps" class="${tab=='swaps'?'on':''}"><span>💬</span>Swaps${ME.unread?`<i class="badge">${ME.unread}</i>`:''}</a>
+ <a href="#/strains" class="${tab=='strains'?'on':''}"><span>🌿</span>My Strains</a><a href="#/profile" class="${tab=='profile'?'on':''}"><span>👤</span>Profile</a></nav>`:'')}
+function reportModal(u,swapId){modal(`<h3>Report ${esc(u.name)}</h3><label>Reason</label><select name="reason" required>${opts(ME.reasons,'','Choose…')}</select><label>Note (optional)</label><textarea name="note"></textarea><p class="muted">Non-delivery reports count toward automatic removal (${META.reportLimit} strikes). Other reports go to the Bud Share admins.</p>`,'Send report',async d=>{try{d.swapId=swapId;const r=await api(`/users/${u.id}/report`,{body:d});toast(r.removed?'Reported – member removed':'Report sent')}catch(e){toast(e.message)}},'red')}
+async function vAdmin(){const l=await api('/admin/reports');shell('Reports (admin)',l.length?l.map(x=>`<div class="card pad"><b>${esc(x.reason)}</b> <span class="chip ${x.status=='open'?'demo':''}">${x.status}</span><div class="muted">${new Date(x.at).toLocaleString()} · by ${esc(x.byUser?.name)}</div>
+ <div>Against: <b>${esc(x.againstUser?.name)}</b> (${esc(x.againstUser?.email)}) · strikes ${x.againstUser?.strikes}${x.againstUser?.banned?' · <b style="color:#e53935">REMOVED</b>':''}</div>${x.note?`<p>${esc(x.note)}</p>`:''}${x.swapId?`<div class="muted">Swap #${x.swapId}</div>`:''}
+ ${x.status=='open'?`<button class="btn sm sec" onclick="adm(${x.id},'resolve')">Mark resolved</button>${x.againstUser?.banned?'':`<button class="btn sm red" onclick="adm(${x.id},'remove')">Remove member</button>`}`:''}</div>`).join(''):'<p class="pad muted">No reports.</p>','profile',1)}
+async function adm(id,action){if(action=='remove'&&!confirm('Remove this member?'))return;await api('/admin/reports/'+id,{body:{action}});vAdmin()}
+const invLink=()=>location.origin+'/join?ref='+(ME?.inviteCode||'');
+function shareSheet(text,url=invLink()){const m=document.createElement('div');m.className='modal';const t=encodeURIComponent(text),u=encodeURIComponent(url);
+ m.innerHTML=`<div><h3>Share</h3><p class="muted" style="word-break:break-all">${esc(url)}</p>${navigator.share?'<button class="btn" id="sn">📤 Share… (Instagram, etc.)</button>':''}
+ <a class="btn sec" target="_blank" href="https://wa.me/?text=${t}%20${u}">WhatsApp</a><a class="btn sec" target="_blank" href="https://twitter.com/intent/tweet?text=${t}&url=${u}">X (Twitter)</a>
+ <a class="btn sec" target="_blank" href="https://www.facebook.com/sharer/sharer.php?u=${u}">Facebook</a><button class="btn sec" id="sc">📋 Copy link</button><button class="btn sec" id="sx">Close</button></div>`;document.body.append(m);
+ m.onclick=e=>{if(e.target==m)m.remove()};m.querySelector('#sx').onclick=()=>m.remove();
+ m.querySelector('#sc').onclick=async()=>{try{await navigator.clipboard.writeText(url)}catch(e){const i=document.createElement('textarea');i.value=url;document.body.append(i);i.select();document.execCommand('copy');i.remove()}toast('Link copied')};
+ const sn=m.querySelector('#sn');sn&&(sn.onclick=async()=>{try{await navigator.share({title:'Bud Share - craft growers network',text,url})}catch(e){}})}
+const lockMsg=()=>`<div class="lock"><span>🔒</span><h2>Growers only</h2><p class="muted">Bud Share is a grower-to-grower network. List at least one of your own strains to browse other growers and request swaps.</p><a class="btn" href="#/strains/new">+ List your first strain</a></div>`;
+const terms=`<div class="pad"><h2>Bud Share terms</h2><ol>
+<li><b>Members must be 18 or older.</b> You confirm your date of birth when you join.</li>
+<li><b>No sales, no money.</b> Bud Share is for swapping home-grown flower between private growers only. Any request for money, payment or anything of monetary value is banned and gets you removed.</li>
+<li><b>Private use only.</b> Flower received is for your own private, personal use. You are responsible for complying with South African law, including the Cannabis for Private Purposes Act, and with your courier's terms.</li>
+<li><b>Growers only.</b> You must have at least one of your own strains listed to swap.</li>
+<li><b>Honest dealing.</b> Send what you agreed and share real tracking details. If a partner reports your parcel as not received 3 times, your account is deleted.</li>
+<li>Ratings must be honest and only come from members who actually received the flower.</li>
+<li>Bud Share is a meeting place for growers and does not handle, check or transport any product.</li></ol></div>`;
+// ---------- auth
+function vAuth(mode='login'){A.innerHTML=`<div class="hero"><img src="/icon-192.png" width="72" style="border-radius:16px"><h1>Bud Share</h1><div style="opacity:.9">craft growers network</div><div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px"><span style="opacity:.75">By</span><img src="/whoomph-logo.png" alt="Whoomph" style="height:20px"></div><div style="margin-top:10px;font-size:14px">Grower-to-grower swaps · 18+ · No sales</div></div>
+<div class="tabs2"><a href="#/login" class="${mode=='login'?'on':''}">Log in</a><a href="#/signup" class="${mode=='signup'?'on':''}">Join</a></div><form class="pad" id="f">
+${mode=='signup'?`<label>Display name</label><input name="name" required><label>Date of birth (must be 18+)</label><input type="date" name="dob" required>
+<label>Town / city</label><input name="town" required><label>Province</label><select name="province" required>${opts(PROV,'','Choose…')}</select>`:''}
+${mode=='signup'&&REF?`<div class="chip" style="margin-top:12px">🤝 Invited by ${esc(REFNAME||REF)}</div><input type="hidden" name="ref" value="${esc(REF)}">`:''}<label>Email</label><input type="email" name="email" required autocomplete="username"><label>Password</label><input type="password" name="password" required minlength="6">
+${mode=='signup'?`<div class="chk"><input type="checkbox" name="agree" id="ag" required><label for="ag" style="margin:0">I am 18+ and accept the <a href="#/terms">terms</a> (no sales, no money, private use)</label></div>`:''}
+<button class="btn">${mode=='signup'?'Create account':'Log in'}</button></form>${mode=='login'?'<p class="pad muted">Demo: thabo@demo.budshare / demo123</p>':''}`;
+ $('#f').onsubmit=async e=>{e.preventDefault();const d=Object.fromEntries(new FormData(e.target));d.agree=!!d.agree;try{await api('/'+mode,{body:d});if(mode=='signup')localStorage.removeItem('bs_ref');await loadMe();location.hash='#/browse'}catch(x){toast(x.message)}}}
+let REF=new URLSearchParams(location.search).get('ref')||localStorage.getItem('bs_ref')||'',REFNAME='';if(REF){localStorage.setItem('bs_ref',REF);fetch('/api/invite/'+encodeURIComponent(REF)).then(r=>r.json()).then(j=>{REFNAME=j.name||'';if(location.hash=='#/signup')vAuth('signup')});if(location.pathname=='/join'){history.replaceState(null,'','/#/signup')}}
+async function loadMe(){try{ME=await api('/me');const s=await api('/swaps');ME.unread=s.reduce((a,b)=>a+b.unread,0)}catch(e){ME=null}}
+// ---------- browse
+let F={sort:'near'},VIEW='feed';
+async function vBrowse(){shell('Bud Share',`<div class="tabs2"><a href="javascript:VIEW='feed';vBrowse()" class="${VIEW=='feed'?'on':''}">📰 Feed</a><a href="javascript:VIEW='strains';vBrowse()" class="${VIEW=='strains'?'on':''}">🌿 Strains</a></div>`+`<div class="filters">
+<select id="ft">${opts(META.types,F.type,'All types')}</select><select id="fm">${opts(META.methods,F.method,'Any method')}</select>
+<select id="fo"><option value="">Organic?</option><option value="1" ${F.organic?'selected':''}>Organic only</option></select>
+<select id="fp">${opts(PROV,F.province,'All provinces')}</select><input id="fw" placeholder="Town" value="${esc(F.town||'')}" style="width:110px;font-size:14px;padding:7px;border-radius:16px"><select id="fl"><option value="">Any</option><option value="1" ${F.lab?'selected':''}>Lab tested</option></select>
+<select id="fs">${VIEW=='feed'?'<option value="new">Newest</option>':''}<option value="near" ${VIEW=='feed'&&F.sort=='near'?'selected':''}>Nearest first</option><option value="rating" ${F.sort=='rating'?'selected':''}>Top rated</option></select></div>${VIEW=='feed'?'<div id="comp"></div><div id="list"></div>':'<div id="list" class="grid"></div>'}`,'browse');
+ const map={ft:'type',fm:'method',fo:'organic',fp:'province',fl:'lab',fs:'sort'};$('#fw').onchange=e=>{F.town=e.target.value;load()};Object.entries(map).forEach(([i,k])=>$('#'+i).onchange=e=>{F[k]=e.target.value;load()});
+ async function load(){if(VIEW=='feed')return loadFeed();try{const l=await api('/browse?'+new URLSearchParams(Object.fromEntries(Object.entries(F).filter(x=>x[1]))));
+  $('#list').innerHTML=l.length?l.map(s=>`<a class="tile" href="#/strain/${s.id}"><img src="${s.flowerPhotos[0]}" loading="lazy"><div><div class="t1">${esc(s.name)}</div>
+  <div class="muted">${esc(s.type)} · ${s.method}${s.organic?' · Organic':''}</div><div class="chips">${s.labTested?'<span class="chip lab">🧪 Lab tested</span>':''}${s.demo?'<span class="chip demo">DEMO</span>':''}</div>
+  <div class="muted">${esc(s.owner.name)} ${s.owner.rating?`<span class="stars">★</span>${s.owner.rating}`:''}</div><div class="muted">📍 ${esc(s.owner.town)} · ${s.distance}</div></div></a>`).join(''):'<p class="pad muted">No strains match these filters.</p>'}
+  catch(e){if(e.code=='grower_only')$('#list').outerHTML=lockMsg();else toast(e.message)}}
+ async function loadFeed(){try{let l=await api('/feed?'+new URLSearchParams(Object.fromEntries(Object.entries(F).filter(x=>x[1]&&x[1]!='new'))));
+  $('#comp').innerHTML=`<div class="card pad" style="padding:12px"><div style="display:flex;gap:10px">${av(ME,'s')}<button class="btn sec" style="margin:0;text-align:left;color:var(--m);border-color:#ccd" id="np">Share your grow, flower or tips…</button></div></div>`;$('#np').onclick=newPost;
+  $('#list').innerHTML=(l=l.filter((p,i)=>l.findIndex(x=>x.id==p.id)==i)).length?l.map(postHTML).join(''):'<p class="pad muted">No posts match.</p>';bindPosts(loadFeed)}
+  catch(e){if(e.code=='grower_only'){$('#comp').innerHTML='';$('#list').innerHTML=lockMsg()}else toast(e.message)}}
+ load()}
+const ago=t=>{const m=(Date.now()-t)/6e4;return m<1?'now':m<60?Math.floor(m)+'m':m<1440?Math.floor(m/60)+'h':Math.floor(m/1440)+'d'};
+const postHTML=p=>`<div class="card" data-p="${p.id}"><a class="row" style="border:0" href="#/user/${p.author.id}">${av(p.author,'s')}<div class="grow"><div class="t1">${esc(p.author.name)} ${p.author.rating?`<span class="stars">★</span><small>${p.author.rating}</small>`:''}</div><div class="t2">📍 ${esc(p.author.town)} · ${ago(p.at)}</div></div></a>
+ ${p.text?`<div style="padding:0 16px 10px;white-space:pre-wrap">${esc(p.text)}</div>`:''}${p.photos.length?`<div class="gal">${p.photos.map(x=>`<img src="${x}" loading="lazy">`).join('')}</div>`:''}
+ ${p.strain?`<a class="row" href="#/strain/${p.strain.id}" style="background:#f7faf8"><div class="grow"><b>🌿 ${esc(p.strain.name)}</b><div class="chips"><span class="chip">${esc(p.strain.type)}</span><span class="chip">${p.strain.method}</span>${p.strain.organic?'<span class="chip">Organic</span>':''}${p.strain.labTested?'<span class="chip lab">🧪 Lab tested</span>':''}</div></div>${p.userId!=ME.id?'<span class="btn sm" style="margin:0">⇄ Swap</span>':'›'}</a>`:''}
+ <div style="display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--b)"><button class="btn sm sec lk" style="border:0;${p.liked?'color:#e53935':''}">${p.liked?'❤️':'🤍'} ${p.likes}</button><button class="btn sm sec cm" style="border:0">💬 ${p.comments}</button><button class="btn sm sec sh" style="border:0">📤</button>${p.userId==ME.id?'<button class="btn sm sec dl" style="border:0;margin-left:auto">🗑</button>':''}</div></div>`;
+function bindPosts(reload){document.querySelectorAll('[data-p]').forEach(el=>{const id=el.dataset.p;
+ el.querySelector('.lk').onclick=async()=>{await api(`/posts/${id}/like`,{body:{}});reload()};
+ el.querySelector('.cm').onclick=()=>commentsModal(id,reload);el.querySelector('.sh').onclick=()=>{const t=el.querySelector('.row .t1')?.innerText||'';shareSheet(`${t.split(' ★')[0]} shared a post on Bud Share – craft growers network (18+, swaps only)`)};const d=el.querySelector('.dl');d&&(d.onclick=async()=>{if(confirm('Delete post?')){await api(`/posts/${id}/delete`,{body:{}});reload()}})})}
+async function commentsModal(id,reload){const c=await api(`/posts/${id}/comments`);modal(`<h3>Comments</h3>${c.length?c.map(x=>`<div class="row" style="padding:8px 0">${av(x.author,'s')}<div class="grow"><b>${esc(x.author.name)}</b> <span class="muted">${ago(x.at)}</span><div>${esc(x.text)}</div></div></div>`).join(''):'<p class="muted">No comments yet.</p>'}<label>Add a comment</label><input name="text" required>`,'Post comment',async d=>{await api(`/posts/${id}/comments`,{body:d});reload()})}
+async function shrink(f){if(!/^image\/(jpeg|png|webp|heic)/.test(f.type)||f.size<400e3)return f;try{const b=await createImageBitmap(f),k=Math.min(1,1600/Math.max(b.width,b.height)),c=document.createElement('canvas');c.width=b.width*k;c.height=b.height*k;c.getContext('2d').drawImage(b,0,0,c.width,c.height);
+ const bl=await new Promise(r=>c.toBlob(r,'image/jpeg',.85));return bl&&bl.size<f.size?new File([bl],f.name.replace(/\.\w+$/,'')+'.jpg',{type:'image/jpeg'}):f}catch(e){return f}}
+function newPost(){if(document.querySelector('.modal'))return;const m=document.createElement('div');m.className='modal';const cid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random());m.innerHTML=`<div><form><h3>New post</h3><textarea name="text" placeholder="Your flower, grow style, tips…"></textarea><label>📸 Photos (as many as you like)</label><input type="file" name="photos" accept="image/*" multiple><button class="btn" id="pb">Post</button><button type="button" class="btn sec" id="mx">Cancel</button></form></div>`;document.body.append(m);
+ let busy=false;m.querySelector('#mx').onclick=()=>m.remove();m.querySelector('form').onsubmit=async e=>{e.preventDefault();if(busy)return;busy=true;const b=m.querySelector('#pb');b.disabled=true;b.textContent='Posting…';
+  try{const fd=new FormData();fd.set('text',e.target.text.value);fd.set('clientId',cid);for(const f of e.target.photos.files)fd.append('photos',await shrink(f));await api('/posts',{body:fd});m.remove();VIEW='feed';vBrowse()}catch(x){toast(x.message);busy=false;b.disabled=false;b.textContent='Post'}}}
+// ---------- strain detail
+async function vStrain(id){let s;try{s=await api('/strains/'+id)}catch(e){return shell('Strain',e.code=='grower_only'?lockMsg():`<p class="pad">${esc(e.message)}</p>`,'browse',1)}
+ const rv=await api(`/strains/${id}/reviews`);const mine=s.userId==ME.id;
+ shell(esc(s.name),`<div class="gal">${[...s.flowerPhotos,...s.driedPhotos,...s.extraPhotos].map(p=>`<img src="${p}">`).join('')}</div><div class="pad">
+ <div class="chips"><span class="chip">${esc(s.type)}</span><span class="chip">${s.method}</span>${s.organic?'<span class="chip">🌱 Organic</span>':''}${s.labTested?`<a class="chip lab" href="${s.coa}" target="_blank">🧪 Lab tested – view COA</a>`:''}${s.demo?'<span class="chip demo">DEMO listing</span>':''}</div>
+ <div>Flower rating: ${stars(s.flowerRating)} <span class="muted">(${s.flowerRatingCount} from swap partners)</span></div><p>${esc(s.description)}</p>
+ <div class="muted">📸 In flower: ${s.flowerPhotos.length} · Dried: ${s.driedPhotos.length} · Extra: ${s.extraPhotos.length}</div></div>
+ <a class="row" href="#/user/${s.owner.id}">${av(s.owner)}<div class="grow"><div class="t1">${esc(s.owner.name)}</div><div class="t2">📍 ${esc(s.owner.town)}, ${esc(s.owner.province)}</div><div>${stars(s.owner.rating)}</div></div>›</a>
+ <div class="pad">${mine?`<a class="btn sec" href="#/strains/edit/${s.id}">Edit listing</a>`:`<button class="btn" id="req">⇄ Propose a swap</button>`}
+ <h3>Reviews from receivers</h3>${rv.length?rv.map(r=>`<div class="row" style="padding:8px 0">${av(r.rater,'s')}<div class="grow"><b>${esc(r.rater.name)}</b> <span class="stars">${'★'.repeat(r.flowerStars)}</span><div class="t2">${esc(r.comment)}</div></div></div>`).join(''):'<p class="muted">No reviews yet.</p>'}</div>`,'browse',1);
+ $('#req')&&($('#req').onclick=()=>proposeModal(s))}
+async function proposeModal(s){const my=(await api('/my/strains')).filter(x=>x.active);const m=document.createElement('div');m.className='modal';
+ m.innerHTML=`<div><h3>Propose a swap</h3><p class="muted">No money – flower for flower only. Amounts are open to negotiation.</p>
+ <label>Your strain</label><select id="ms">${my.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}</select><label>Grams you send</label><input id="mg" type="number" min="1" value="5">
+ <label>Grams of ${esc(s.name)} you'd like</label><input id="tg" type="number" min="1" value="5"><label>Message (optional)</label><input id="nt" placeholder="Hi! Keen to swap?">
+ <button class="btn" id="go">Send offer</button><button class="btn sec" id="cx">Cancel</button></div>`;document.body.append(m);
+ m.querySelector('#cx').onclick=()=>m.remove();m.querySelector('#go').onclick=async()=>{try{const r=await api('/swaps',{body:{myStrain:+$('#ms').value,myGrams:+$('#mg').value,theirStrain:s.id,theirGrams:+$('#tg').value,note:$('#nt').value}});m.remove();location.hash='#/chat/'+r.id}catch(e){toast(e.message)}}}
+async function vUser(id){const{user:u,strains}=await api('/users/'+id);const posts=await api(`/users/${id}/posts`);window._us=strains;shell(esc(u.name),`<div class="pad" style="text-align:center">${av(u,'l').replace('class="av l"','class="av l" style="margin:auto"')}<h2>${esc(u.name)}</h2><div>${stars(u.rating)} <span class="muted">(${u.ratingCount})</span></div><div class="muted">📍 ${esc(u.town)}, ${esc(u.province)}</div>${u.invitedBy?`<div class="muted">🤝 Invited by ${esc(u.invitedBy.name)}</div>`:''}<button class="btn sm sec" id="shp">📤 Share</button>${u.id!=ME.id?'<button class="btn sm sec" id="rpt" style="color:#e53935;border-color:#e53935">🚩 Report user</button>':''}</div>
+ <h3 class="pad" style="padding-bottom:0">🌿 Strains on offer to swap (${strains.length})</h3><div class="grid">${strains.map(s=>`<a class="tile" href="#/strain/${s.id}"><img src="${s.flowerPhotos[0]}"><div><b>${esc(s.name)}</b><div class="muted">${esc(s.type)} · ${s.method}</div>${u.id!=ME.id?`<span class="btn sm" style="margin-top:6px" onclick="event.preventDefault();proposeModal(_us[${strains.indexOf(s)}])">⇄ Request swap</span>`:''}</div></a>`).join('')}</div>
+ <h3 class="pad" style="padding-bottom:0">Posts</h3>${posts.map(postHTML).join('')||'<p class="pad muted">No posts yet.</p>'}`,'browse',1);bindPosts(()=>vUser(id));$('#shp').onclick=()=>shareSheet(`Check out ${u.name}'s strains on Bud Share – craft growers network (18+, swaps only)`);$('#rpt')&&($('#rpt').onclick=()=>reportModal(u))}
+// ---------- swaps list
+async function vSwaps(){const l=await api('/swaps');ME.unread=l.reduce((a,b)=>a+b.unread,0);
+ const st={negotiating:'🟠 Negotiating',agreed:'🟢 Deal agreed',completed:'✅ Completed',cancelled:'⚪ Cancelled'};
+ shell('Swaps',l.length?l.map(w=>`<a class="row" href="#/chat/${w.id}">${av(w.other)}<div class="grow"><div style="display:flex"><span class="t1 grow">${esc(w.other.name)}</span><span class="muted">${w.lastMsg?tm(w.lastMsg.at):''}</span></div>
+ <div class="t2">${esc(w.myStrain.name)} ⇄ ${esc(w.theirStrain.name)} · ${st[w.status]}</div><div class="t2">${esc(w.lastMsg?.type=='courier'?'📦 Courier details shared':w.lastMsg?.text||'')}</div></div>${w.unread?`<span class="chip" style="background:var(--l);color:#fff">${w.unread}</span>`:''}</a>`).join(''):'<p class="pad muted">No swaps yet. Find a strain in Browse and propose a swap.</p>','swaps')}
+// ---------- chat
+async function vChat(id){clearInterval(poll);let lastTop='',lastHd='',lastId=0,built=false;
+ const sending=async v=>{try{await api(`/swaps/${id}/messages`,{body:{text:v}});draw()}catch(e){toast(e.message)}};
+ async function draw(force){const{swap:w,messages}=await api('/swaps/'+id);if(!location.hash.startsWith('#/chat/'+id))return;
+ if(!built){built=true;A.innerHTML=`<header id="hd"></header><div id="top"></div><div class="chat" id="ch"></div><form class="compose" id="cf"><input id="ci" placeholder="Message" autocomplete="off" enterkeyhint="send"><button>➤</button></form>
+ <nav><a href="#/browse"><span>🔍</span>Browse</a><a href="#/swaps" class="on"><span>💬</span>Swaps</a><a href="#/strains"><span>🌿</span>My Strains</a><a href="#/profile"><span>👤</span>Profile</a></nav>`;
+  $('#cf').onsubmit=e=>{e.preventDefault();const i=$('#ci'),v=i.value;if(v.trim()){i.value='';i.focus();sending(v)}}}
+ const o=w.other;const fresh=messages.filter(m=>m.id>lastId);const body=fresh.map(m=>{const me=m.userId==ME.id;if(m.type=='system')return`<div class="sys">${esc(m.text)}</div>`;
+  if(m.type=='courier')return`<div class="b cour ${me?'me':''}">📦 <b>Courier details</b><br>Courier: <b>${esc(m.courier)}</b><br>Tracking #: <b>${esc(m.tracking)}</b>${m.notes?`<br>${esc(m.notes)}`:''}<time>${tm(m.at)}</time></div>`;
+  return`<div class="b ${m.type=='offer'?'offer':''} ${me?'me':''}">${m.type=='offer'?'🤝 ':''}${esc(m.text)}<time>${tm(m.at)}</time></div>`}).join('');
+ let act='';if(w.status=='negotiating'){act=w.iAccepted?`<span class="muted">Waiting for ${esc(o.name)} to accept…</span> `:`<button class="btn sm" id="acc">✅ Accept</button>`;act+=`<button class="btn sm sec" id="ctr">↔ Counter</button><button class="btn sm sec" id="dec">Cancel</button>`}
+ else if(w.status=='agreed'||w.status=='completed'){act=`<button class="btn sm sec" id="cour">📦 Share courier & tracking</button>`;
+  if(!w.myReceipt)act+=`<button class="btn sm" id="rec">Received</button><button class="btn sm red" id="nrec">Not received</button>`;
+  else if(w.myReceipt=='received'&&!w.iRated)act+=`<button class="btn sm" id="rate">⭐ Rate flower & member</button>`;
+  else act+=`<span class="muted">You marked: ${w.myReceipt=='received'?'received':'NOT received (reported)'}</span>`}
+ const hdH=`<button onclick="location.hash='#/swaps'">‹</button>${av(o,'s')}<div class="grow"><div style="font-weight:600">${esc(o.name)}</div><div style="font-size:12px">${o.rating?'★ '+o.rating:'No ratings'} · 📍 ${esc(o.town||'')}</div></div>${o.id?'<button id="rpt" title="Report user">🚩</button>':''}`;if(hdH!=lastHd){lastHd=hdH;$('#hd').innerHTML=hdH;$('#rpt')&&($('#rpt').onclick=()=>reportModal(o,w.id))}
+ $('#cf').style.display=w.status=='cancelled'?'none':'';
+ const ch=$('#ch'),nearBottom=innerHeight+scrollY>=document.body.scrollHeight-150;if(fresh.length){ch.insertAdjacentHTML('beforeend',body);lastId=fresh[fresh.length-1].id;if(nearBottom||force)scrollTo(0,document.body.scrollHeight)}
+ const topH=`
+ <div class="chead"><a href="#/strain/${w.myStrain.id}"><img src="${w.myStrain.flowerPhotos[0]}"></a><div class="grow" style="text-align:center;font-size:13px"><b>${w.myGrams}g</b> ${esc(w.myStrain.name)}<br>⇄<br><b>${w.theirGrams}g</b> ${esc(w.theirStrain.name)}</div><a href="#/strain/${w.theirStrain.id}"><img src="${w.theirStrain.flowerPhotos[0]}"></a></div>
+ <div class="deal">${act}</div>`;if(topH==lastTop&&!force)return;lastTop=topH;$('#top').innerHTML=topH;
+ const on=(i,f)=>$('#'+i)&&($('#'+i).onclick=f);const act2=async(p,b)=>{try{await api(`/swaps/${id}/${p}`,{body:b||{}});draw(1)}catch(e){toast(e.message)}};
+  on('acc',()=>act2('accept'));on('dec',()=>confirm('Cancel this swap?')&&act2('decline'));
+ on('ctr',()=>modal(`<h3>Counter-offer</h3><label>Grams of ${esc(w.myStrain.name)} you send</label><input name="myGrams" type="number" min="1" value="${w.myGrams}"><label>Grams of ${esc(w.theirStrain.name)} you get</label><input name="theirGrams" type="number" min="1" value="${w.theirGrams}">`,'Send counter',d=>act2('counter',d)));
+ on('cour',()=>modal(`<h3>Share courier details</h3><label>Courier</label><input name="courier" list="cl" required><datalist id="cl"><option>PostNet</option><option>The Courier Guy</option><option>Pargo</option><option>PAXI</option><option>Aramex</option><option>Fastway</option></datalist><label>Tracking number</label><input name="tracking" required><label>Notes (optional)</label><input name="notes" placeholder="e.g. sent today, ETA 2 days">`,'Share',d=>act2('messages',d)));
+ on('rec',()=>confirm('Confirm you received your parcel?')&&act2('receipt',{received:true}));
+ on('nrec',()=>modal(`<h3>Parcel not received</h3><p class="muted">This reports ${esc(o.name)}. Members reported ${META.reportLimit} times are removed from Bud Share. Only do this if the parcel really never arrived.</p><label>What happened?</label><input name="reason">`,'Report not received',d=>act2('receipt',{received:false,reason:d.reason}),'red'));
+ on('rate',()=>{modal(`<h3>Rate this swap</h3><label>Flower: ${esc(w.theirStrain.name)}</label><div class="starpick" data-n="flowerStars"></div><label>Member: ${esc(o.name)}</label><div class="starpick" data-n="memberStars"></div><input type="hidden" name="flowerStars"><input type="hidden" name="memberStars"><label>Comment (optional)</label><input name="comment">`,'Submit rating',d=>act2('rate',d))})}
+ await draw(1);poll=setInterval(()=>draw().catch(()=>{}),4000)}
+function modal(html,btn,cb,cls=''){const m=document.createElement('div');m.className='modal';m.innerHTML=`<div><form>${html}<button class="btn ${cls}">${btn}</button><button type="button" class="btn sec" id="mx">Close</button></form></div>`;document.body.append(m);
+ m.querySelectorAll('.starpick').forEach(p=>{p.innerHTML=[1,2,3,4,5].map(i=>`<span data-v="${i}">★</span>`).join('');p.onclick=e=>{const v=e.target.dataset.v;if(!v)return;m.querySelector(`[name=${p.dataset.n}]`).value=v;p.querySelectorAll('span').forEach(s=>s.classList.toggle('on',s.dataset.v<=v))}});
+ m.querySelector('#mx').onclick=()=>m.remove();m.querySelector('form').onsubmit=e=>{e.preventDefault();cb(Object.fromEntries(new FormData(e.target)));m.remove()}}
+// ---------- my strains
+async function vMyStrains(){const l=await api('/my/strains');shell('My Strains',`${l.length?'':`<p class="pad muted">You haven't listed a strain yet. Growers need at least one active listing to browse and swap.</p>`}
+ ${l.map(s=>`<a class="row" href="#/strain/${s.id}"><img class="av" style="border-radius:8px" src="${s.flowerPhotos[0]}"><div class="grow"><div class="t1">${esc(s.name)} ${s.active?'':'<span class="chip demo">Hidden</span>'}</div><div class="t2">${esc(s.type)} · ${s.method}${s.organic?' · Organic':''}${s.labTested?' · 🧪 Lab tested':''}</div><div>${stars(s.flowerRating)}</div></div></a>`).join('')}
+ <div class="pad"><a class="btn" href="#/strains/new">+ List a strain</a></div>`,'strains')}
+async function vEdit(id){const s=id?await api('/strains/'+id):{};const T=META.types,M=META.methods;
+ shell(id?'Edit strain':'List a strain',`<form class="pad" id="f"><label>Strain name</label><input name="name" value="${esc(s.name||'')}" required>
+ <label>Strain type</label><select name="type" required>${opts(T,s.type,'Choose…')}</select><label>Grow method</label><select name="method" required>${opts(M,s.method,'Choose…')}</select>
+ <div class="chk"><input type="checkbox" name="organic" id="org" ${s.organic?'checked':''}><label for="org" style="margin:0">🌱 Organic</label></div>
+ <label>Description (aroma, effects, grow notes)</label><textarea name="description">${esc(s.description||'')}</textarea>
+ <label>📸 Plant in flower photos ${id?'(add more)':'– at least 1 required'}</label><input type="file" name="flower" accept="image/*" multiple ${id?'':'required'}>${id?`<div class="thumbs">${s.flowerPhotos.map(p=>`<img src="${p}">`).join('')}</div>`:''}
+ <label>📸 Dried bud photos ${id?'(add more)':'– at least 1 required'}</label><input type="file" name="dried" accept="image/*" multiple ${id?'':'required'}>${id?`<div class="thumbs">${s.driedPhotos.map(p=>`<img src="${p}">`).join('')}</div>`:''}
+ <label>📸 Extra photos (optional, as many as you like)</label><input type="file" name="extra" accept="image/*" multiple>
+ <label>🧪 COA / lab certificate (optional, PDF or photo)</label><input type="file" name="coa" accept="image/*,application/pdf">${s.coa?`<a href="${s.coa}" target="_blank">Current COA</a>`:''}
+ ${id?`<div class="chk"><input type="checkbox" id="act" ${s.active?'checked':''}><label for="act" style="margin:0">Listing active (visible)</label></div>`:''}
+ <button class="btn" id="sv">${id?'Save':'Publish listing'}</button>${id?'<button type="button" class="btn red" id="del">Remove listing</button>':''}</form>`,'strains',1);
+ $('#f').onsubmit=async e=>{e.preventDefault();const fd=new FormData(e.target);fd.set('organic',e.target.organic.checked);if(id)fd.set('active',$('#act').checked);$('#sv').disabled=true;$('#sv').textContent='Uploading…';
+  try{const r=await api(id?'/strains/'+id:'/strains',{body:fd});await loadMe();location.hash='#/strain/'+r.id}catch(x){toast(x.message);$('#sv').disabled=false;$('#sv').textContent='Save'}};
+ $('#del')&&($('#del').onclick=async()=>{if(!confirm('Remove this listing?'))return;const fd=new FormData();fd.set('remove','1');await api('/strains/'+id,{body:fd});location.hash='#/strains'})}
+// ---------- profile
+async function vProfile(){await loadMe();const u=ME;shell('Profile',`<div class="pad" style="text-align:center">${av(u,'l').replace('class="av l"','class="av l" style="margin:auto"')}<h2>${esc(u.name)}</h2><div>${stars(u.rating)} <span class="muted">(${u.ratingCount} ratings)</span></div>
+ <div class="muted">📍 ${esc(u.town)}, ${esc(u.province)}</div><div class="muted">Non-delivery reports: ${u.reports}/${u.reportLimit}</div>${u.isGrower?'<span class="chip">🌿 Active grower</span>':'<span class="chip demo">No active listings – swapping locked</span>'}</div>
+ <div class="card pad"><h3 style="margin:0 0 6px">🤝 Invite friends</h3><div class="muted">Invite fellow growers (18+, must list a strain to swap). Friends invited: <b>${u.invitedCount}</b>${u.invitedBy?` · Invited by <a href="#/user/${u.invitedBy.id}">${esc(u.invitedBy.name)}</a>`:''}</div>
+ <div style="margin:8px 0;font-size:14px">Your code: <b>${u.inviteCode}</b></div><input id="il" readonly value="${location.origin}/join?ref=${u.inviteCode}">
+ <button class="btn sm" id="ish">📤 Share invite</button><button class="btn sm sec" id="icp">📋 Copy link</button></div>
+ <form class="pad" id="f"><label>Profile photo (optional)</label><input type="file" name="photo" accept="image/*"><label>Name</label><input name="name" value="${esc(u.name)}"><label>Town / city</label><input name="town" value="${esc(u.town)}"><label>Province</label><select name="province">${opts(PROV,u.province)}</select><button class="btn">Save profile</button></form>
+ <div class="pad">${u.admin?'<a class="btn" href="#/admin">🛡 Admin: reports</a>':''}<a class="btn sec" href="#/terms">Terms</a><button class="btn sec" id="lo">Log out</button></div>`,'profile');
+ $('#ish').onclick=()=>shareSheet('Join me on Bud Share – craft growers network (18+, swaps only, no sales)');$('#icp').onclick=async()=>{try{await navigator.clipboard.writeText(invLink())}catch(e){$('#il').select();document.execCommand('copy')}toast('Invite link copied')};
+ $('#f').onsubmit=async e=>{e.preventDefault();await api('/me',{body:new FormData(e.target)});toast('Saved');vProfile()};$('#lo').onclick=async()=>{await api('/logout',{body:{}});ME=null;location.hash='#/login'}}
+// ---------- router
+async function route(){const h=location.hash.slice(2).split('/');if(!META)META=await api('/meta');if(ME===null)await loadMe();
+ if(h[0]=='terms')return shell('Terms',terms,'',1);if(!ME)return vAuth(h[0]=='signup'?'signup':'login');
+ try{switch(h[0]){case'strain':return vStrain(h[1]);case'user':return vUser(h[1]);case'swaps':return vSwaps();case'chat':return vChat(h[1]);
+  case'strains':return h[1]=='new'?vEdit():h[1]=='edit'?vEdit(h[2]):vMyStrains();case'profile':return vProfile();case'admin':return vAdmin();default:return vBrowse()}}catch(e){if(e.status==401||e.status==403&&e.code!='grower_only'){ME=null;toast(e.message);return vAuth()}toast(e.message)}}
+addEventListener('hashchange',route);route();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
