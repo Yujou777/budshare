@@ -5,6 +5,15 @@ const save=()=>fs.writeFileSync(DBF,JSON.stringify(db));const id=()=>db.seq++;
 const REPORT_LIMIT=3,TYPES=['Indica','Sativa','Indica-leaning hybrid','Sativa-leaning hybrid','50/50'],METHODS=['Indoor','Outdoor','Greenhouse'];
 const app=express();app.set('trust proxy',1);app.use(express.json());
 app.use(session({name:'bs',keys:[process.env.SECRET||'budshare-secret-'+(db.secret||(db.secret=crypto.randomBytes(8).toString('hex')))],maxAge:30*864e5,sameSite:'lax'}));
+app.use((q,r,n)=>{r.set('X-Robots-Tag','noindex, nofollow, noarchive');n()});
+app.get('/healthz',(q,r)=>r.send('ok'));
+app.get('/robots.txt',(q,r)=>r.type('text/plain').send('User-agent: *\nDisallow: /\n'));
+const SU=process.env.SITE_USER,SP=process.env.SITE_PASS,GATE=SU&&SP?crypto.createHmac('sha256',SP).update('gate:'+SU).digest('hex'):null;
+const OPEN=/^\/(healthz|manifest\.json|icon-(192|512)\.png|og-image\.png|whoomph-logo\.png|robots\.txt|sw\.js)$/;
+const eq=(a,b)=>{a=Buffer.from(String(a));b=Buffer.from(String(b));return a.length==b.length&&crypto.timingSafeEqual(a,b)};
+app.use((q,r,n)=>{if(!GATE||OPEN.test(q.path))return n();const c=(q.headers.cookie||'').match(/(?:^|;\s*)bsgate=([a-f0-9]+)/);if(c&&eq(c[1],GATE))return n();
+ const h=q.headers.authorization||'';if(h.startsWith('Basic ')){const[u,...pw]=Buffer.from(h.slice(6),'base64').toString().split(':');if(eq(u,SU)&&eq(pw.join(':'),SP)){r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});return n()}}
+ r.set('WWW-Authenticate','Basic realm="Bud Share private test", charset="UTF-8"').status(401).type('text/plain').send('Bud Share is a private test environment. Access code required.')});
 app.use(express.static(path.join(__dirname,'public')));app.use('/uploads',express.static(path.join(__dirname,'uploads')));
 const up=multer({storage:multer.diskStorage({destination:'uploads',filename:(r,f,cb)=>cb(null,Date.now()+'-'+crypto.randomBytes(4).toString('hex')+path.extname(f.originalname).toLowerCase())}),limits:{fileSize:15e6},fileFilter:(r,f,cb)=>cb(null,/^image\/|application\/pdf/.test(f.mimetype))});
 const U=i=>db.users.find(u=>u.id==i&&!u.deleted),S=i=>db.strains.find(s=>s.id==i);

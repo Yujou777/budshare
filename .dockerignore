@@ -5,3 +5,4 @@ uploads
 *.log
 .git
 .env
+.site_pass

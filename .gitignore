@@ -5,3 +5,4 @@ uploads/*
 .render_api_key
 *.log
 .env
+.site_pass
