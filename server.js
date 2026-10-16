@@ -130,7 +130,8 @@ app.get('/api/strains/:id/reviews',auth,(q,r)=>r.json(db.ratings.filter(x=>x.str
 app.use((q,r)=>r.sendFile(path.join(__dirname,'public/index.html')));
 app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
 (async()=>{fs.mkdirSync(path.join(__dirname,'uploads'),{recursive:true});
- if(await store.init().catch(e=>{console.error('DB connect failed:',e.code||e.message);process.exit(1)})){db=await store.load();
+ let ok=false;for(let i=1;i<=6;i++){try{ok=await store.init();break}catch(e){console.error(`DB connect failed (attempt ${i}/6):`,e.code||e.message);if(i==6)process.exit(1);await new Promise(r=>setTimeout(r,5000*i))}}
+ if(ok){db=await store.load();
   if(!db.users.length){console.log('DB empty - seeding demo data');require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF));
    console.log('imported files',await store.importDir(path.join(__dirname,'uploads')));await store.flushNow(db)}
   db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}

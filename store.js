@@ -3,9 +3,10 @@ const fs=require('fs'),path=require('path');
 const COLLS=['users','strains','posts','comments','swaps','messages','ratings','reports'];
 const URL_=process.env.DATABASE_URL;let pool=null;const snap={};let pending=null,running=false,dirty=false;
 const mime=n=>({'.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.pdf':'application/pdf','.heic':'image/heic'})[path.extname(n).toLowerCase()]||'application/octet-stream';
-async function init(){if(!URL_)return false;const{Pool}=require('pg');
+async function init(){if(!URL_)return false;const{Pool}=require('pg');if(pool){await pool.end().catch(()=>{});pool=null}
  pool=new Pool({connectionString:URL_,ssl:/localhost|127\.0\.0\.1/.test(URL_)?false:{rejectUnauthorized:false},max:5,idleTimeoutMillis:30000,connectionTimeoutMillis:20000});
  pool.on('error',e=>console.error('pg pool error',e.code||e.message));
+ await pool.query('select 1').catch(async e=>{await pool.end().catch(()=>{});pool=null;throw e});
  for(const c of COLLS)await pool.query(`create table if not exists bs_${c}(id bigint primary key, data jsonb not null)`);
  await pool.query('create table if not exists bs_meta(key text primary key, value jsonb not null)');
  await pool.query('create table if not exists bs_files(name text primary key, mime text not null, data bytea not null, created timestamptz default now())');
