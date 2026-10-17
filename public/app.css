@@ -63,3 +63,6 @@ body.in-chat #app{padding-bottom:0}
 .ubadge{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#25D366;color:#000;font:700 12px/22px system-ui;text-align:center;align-self:center;margin-left:6px}
 .chat .unr{box-shadow:0 0 0 2px rgba(37,211,102,.35);background-image:linear-gradient(rgba(37,211,102,.14),rgba(37,211,102,.14));transition:box-shadow .9s,background-image .9s}.chat .unr.fade{box-shadow:0 0 0 2px rgba(37,211,102,0);background-image:none}
 .udiv{text-align:center;margin:10px 0;font-size:12px;font-weight:600;color:#25D366;display:flex;align-items:center;gap:8px;transition:opacity 1.5s}.udiv:before,.udiv:after{content:"";flex:1;border-top:1px solid rgba(37,211,102,.4)}.udiv.gone{opacity:.35}
+
+.slab{display:block;font-size:11px;font-weight:600;color:#25D366;opacity:.9;margin-bottom:2px}.sys .slab{display:inline;margin:0}
+.swsel{display:flex;gap:6px;overflow-x:auto;margin-bottom:6px;padding-bottom:2px}.swc{flex:0 0 auto;max-width:230px;text-align:left;font-size:12px;padding:6px 9px;border-radius:12px;border:1px solid #2a2a2a;background:#151515;color:#ddd;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.swc span{color:#999}.swc.on{border-color:#25D366;background:rgba(37,211,102,.12);color:#fff}

@@ -105,7 +105,8 @@ app.get('/api/admin/reports',auth,admin,(q,r)=>r.json(db.reports.slice().reverse
 app.post('/api/admin/reports/:id',auth,admin,(q,r)=>{const x=db.reports.find(x=>x.id==q.params.id);if(!x)return r.status(404).json({error:'Not found'});
  if(q.body.action=='resolve')x.status='resolved';if(q.body.action=='remove'){const o=db.users.find(u=>u.id==x.against);o&&removeUser(o);x.status='resolved'}save();r.json({ok:1})});
 // swaps
-const msg=(swapId,userId,type,o={})=>{const m={id:id(),swapId,userId,type,at:Date.now(),...o};db.messages.push(m);return m};
+const pairKey=(a,b)=>Math.min(a,b)+'-'+Math.max(a,b);const swapPair=sid=>{const w=db.swaps.find(x=>x.id==sid);return w?pairKey(w.aId,w.bId):null};
+const msg=(swapId,userId,type,o={})=>{const m={id:id(),swapId,pair:swapPair(swapId),userId,type,at:Date.now(),...o};db.messages.push(m);return m};
 const swapView=(w,uid)=>{const mine=w.aId==uid,other=U(mine?w.bId:w.aId)||{id:0,name:'Removed member'};
  return{...w,me:mine?'a':'b',other:pubU(other)||{name:'Removed member'},myStrain:pubS(S(mine?w.aStrain:w.bStrain)),theirStrain:pubS(S(mine?w.bStrain:w.aStrain)),myGrams:mine?w.aGrams:w.bGrams,theirGrams:mine?w.bGrams:w.aGrams,iAccepted:mine?w.accA:w.accB,theyAccepted:mine?w.accB:w.accA,myReceipt:mine?w.recA:w.recB,myShip:(mine?w.shipA:w.shipB)||null,theirShip:(mine?w.shipB:w.shipA)||null,theirReceipt:mine?w.recB:w.recA,iRated:db.ratings.some(x=>x.swapId==w.id&&x.raterId==uid),lastMsg:db.messages.filter(m=>m.swapId==w.id).slice(-1)[0],unread:db.messages.filter(m=>m.swapId==w.id&&m.userId!=uid&&m.at>((mine?w.seenA:w.seenB)||0)).length}};
 const SW=(q,r)=>{const w=db.swaps.find(w=>w.id==q.params.id&&(w.aId==q.u.id||w.bId==q.u.id));if(!w)r.status(404).json({error:'Not found'});return w};
@@ -127,6 +128,26 @@ app.post('/api/swaps/:id/decline',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w
 app.post('/api/swaps/:id/messages',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status=='cancelled')return r.status(400).json({error:'Swap cancelled'});const{text,courier,tracking,notes}=q.body;
  if(courier||tracking){if(w.status=='negotiating')return r.status(400).json({error:'Agree the deal first'});if(!courier||!tracking)return r.status(400).json({error:'Courier and tracking number required'});const sk=w.aId==q.u.id?'shipA':'shipB',prev=w[sk];w[sk+'History']=(w[sk+'History']||[]).concat(prev?[prev]:[]);w[sk]={courier,tracking,at:Date.now()};r.json(msg(w.id,q.u.id,'courier',{courier,tracking,notes:notes||'',updated:!!prev}))}
  else{if(!text?.trim())return r.status(400).json({error:'Empty'});w[w.aId==q.u.id?'seenA':'seenB']=Date.now();r.json(msg(w.id,q.u.id,'text',{text:text.trim().slice(0,2000)}))}save()});
+
+// ---- conversations: one chat per member pair, spanning all their swaps
+const pairSwaps=(uid,oid)=>db.swaps.filter(w=>(w.aId==uid&&w.bId==oid)||(w.aId==oid&&w.bId==uid)).sort((a,b)=>a.created-b.created);
+const seenK=(w,uid)=>w.aId==uid?'seenA':'seenB';
+const isUnread=(m,uid)=>{if(m.userId==uid)return false;const w=db.swaps.find(x=>x.id==m.swapId);return !!w&&m.at>(w[seenK(w,uid)]||0)};
+const swapLabel=w=>`Swap #${w.id}: ${w.aGrams}g ${S(w.aStrain)?.name||'?'} ⇄ ${w.bGrams}g ${S(w.bStrain)?.name||'?'}`;
+const convMsgs=(uid,oid)=>{const ws=pairSwaps(uid,oid),ids=new Set(ws.map(w=>w.id)),k=pairKey(uid,oid);return db.messages.filter(m=>m.pair==k||ids.has(m.swapId)).sort((a,b)=>a.at-b.at||a.id-b.id)};
+app.get('/api/convs',auth,(q,r)=>{const by={};for(const w of db.swaps){if(w.aId!=q.u.id&&w.bId!=q.u.id)continue;const o=w.aId==q.u.id?w.bId:w.aId;(by[o]=by[o]||[]).push(w)}
+ r.json(Object.entries(by).map(([o,ws])=>{const ms=convMsgs(q.u.id,+o),last=ms[ms.length-1];const views=ws.map(w=>swapView(w,q.u.id));
+  return{otherId:+o,other:views[0].other,swaps:views.map(v=>({id:v.id,status:v.status,myStrain:v.myStrain?.name,theirStrain:v.theirStrain?.name})),active:views.filter(v=>['negotiating','agreed'].includes(v.status)).length,lastMsg:last||null,unread:ms.filter(m=>isUnread(m,q.u.id)).length}}).sort((a,b)=>(b.lastMsg?.at||0)-(a.lastMsg?.at||0)))});
+app.get('/api/convs/:oid',auth,(q,r)=>{const oid=+q.params.oid,ws=pairSwaps(q.u.id,oid);if(!ws.length)return r.status(404).json({error:'No chat with this member yet'});
+ const multi=ws.length>1,lab=Object.fromEntries(ws.map(w=>[w.id,swapLabel(w)]));
+ r.json({other:swapView(ws[0],q.u.id).other,swaps:ws.map(w=>swapView(w,q.u.id)),messages:convMsgs(q.u.id,oid).map(m=>({...m,unread:isUnread(m,q.u.id),swapLabel:(m.swapIds||[m.swapId]).map(i=>lab[i]?`Swap #${i}`:'').filter(Boolean).join(' + '),swapFull:lab[m.swapId]||''}))})});
+app.post('/api/convs/:oid/read',auth,(q,r)=>{const ws=pairSwaps(q.u.id,+q.params.oid),t=Math.min(Date.now(),+q.body?.upTo||Date.now());ws.forEach(w=>{const k=seenK(w,q.u.id);if(t>(w[k]||0))w[k]=t});save();r.json({ok:1})});
+app.post('/api/convs/:oid/messages',auth,(q,r)=>{const ws=pairSwaps(q.u.id,+q.params.oid);if(!ws.length)return r.status(404).json({error:'Not found'});const text=String(q.body?.text||'').trim();if(!text)return r.status(400).json({error:'Empty'});
+ const w=[...ws].reverse().find(x=>['negotiating','agreed'].includes(x.status))||ws[ws.length-1];ws.forEach(x=>x[seenK(x,q.u.id)]=Date.now());const m=msg(w.id,q.u.id,'text',{text:text.slice(0,2000)});save();r.json(m)});
+app.post('/api/convs/:oid/courier',auth,(q,r)=>{const ws=pairSwaps(q.u.id,+q.params.oid);const{courier,tracking,notes}=q.body||{};const ids=[].concat(q.body?.swapIds||[]).map(Number);
+ const sel=ws.filter(w=>ids.includes(w.id));if(!sel.length)return r.status(400).json({error:'Choose at least one swap'});if(sel.some(w=>!['agreed','completed'].includes(w.status)))return r.status(400).json({error:'Agree the deal first'});if(!courier||!tracking)return r.status(400).json({error:'Courier and tracking number required'});
+ let upd=false;sel.forEach(w=>{const sk=w.aId==q.u.id?'shipA':'shipB',prev=w[sk];if(prev)upd=true;w[sk+'History']=(w[sk+'History']||[]).concat(prev?[prev]:[]);w[sk]={courier,tracking,at:Date.now()}});
+ const m=msg(sel[0].id,q.u.id,'courier',{courier,tracking,notes:notes||'',updated:upd,swapIds:sel.map(w=>w.id)});save();r.json(m)});
 app.post('/api/swaps/:id/receipt',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(!['agreed','completed'].includes(w.status))return r.status(400).json({error:'Deal not agreed yet'});
  const a=w.aId==q.u.id,k=a?'recA':'recB';if(w[k])return r.status(400).json({error:'Already marked'});const v=q.body.received?'received':'not_received';if(v=='not_received'&&!(a?w.shipB:w.shipA))return r.status(400).json({error:'You can report non-delivery once the other member has shared tracking'});w[k]=v;
  if(v=='not_received'){const o=U(a?w.bId:w.aId);const res=o?fileReport(q.u.id,o,'Non-delivery',q.body.reason||'',w.id):{};
@@ -149,6 +170,7 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
   db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
  db.users.forEach(u=>{code(u);if(!u.country)u.country='South Africa'});
+ {let n=0;db.messages.forEach(m=>{if(!m.pair){const k=swapPair(m.swapId);if(k){m.pair=k;n++}}});if(n){console.log('conv-migrate: tagged',n,'messages with pair key');save()}}
  if(process.env.ADMIN_PASSWORD){const ad=db.users.find(u=>u.admin);if(ad&&!bcrypt.compareSync(process.env.ADMIN_PASSWORD,ad.pw)){ad.pw=bcrypt.hashSync(process.env.ADMIN_PASSWORD,10);console.log('Admin password synced from env')}}
  if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
  app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300))})();
