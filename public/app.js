@@ -176,7 +176,7 @@ async function vEdit(id){const s=id?await api('/strains/'+id):{};const T=META.ty
  $('#del')&&($('#del').onclick=async()=>{if(!confirm('Remove this listing?'))return;const fd=new FormData();fd.set('remove','1');await api('/strains/'+id,{body:fd});location.hash='#/strains'})}
 // ---------- profile
 async function vProfile(){await loadMe();await geo();const u=ME;shell('Profile',`<div class="pad" style="text-align:center">${av(u,'l').replace('class="av l"','class="av l" style="margin:auto"')}<h2>${esc(u.name)}</h2><div>${stars(u.rating)} <span class="muted">(${u.ratingCount} ratings)</span></div>
- <div class="muted">📍 ${loc(u)}</div><div class="muted">Non-delivery reports: ${u.reports}/${u.reportLimit}</div>${u.isGrower?'<span class="chip">${LEAF()} Active grower</span>':'<span class="chip demo">No active listings – swapping locked</span>'}</div>
+ <div class="muted">📍 ${loc(u)}</div><div class="muted">Non-delivery reports: ${u.reports}/${u.reportLimit}</div>${u.isGrower?`<span class="chip">${LEAF()} Active grower</span>`:'<span class="chip demo">No active listings – swapping locked</span>'}</div>
  <div class="card pad"><h3 style="margin:0 0 6px">🤝 Invite friends</h3><div class="muted">Invite fellow growers (18+, must list a strain to swap). Friends invited: <b>${u.invitedCount}</b>${u.invitedBy?` · Invited by <a href="#/user/${u.invitedBy.id}">${esc(u.invitedBy.name)}</a>`:''}</div>
  <div style="margin:8px 0;font-size:14px">Your code: <b>${u.inviteCode}</b></div><input id="il" readonly value="${location.origin}/join?ref=${u.inviteCode}">
  <button class="btn sm" id="ish">📤 Share invite</button><button class="btn sm sec" id="icp">📋 Copy link</button></div>
