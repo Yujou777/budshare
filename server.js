@@ -115,7 +115,8 @@ app.post('/api/swaps',auth,grower,(q,r)=>{const{myStrain,myGrams,theirStrain,the
  const w={id:id(),aId:q.u.id,bId:t.userId,aStrain:m.id,bStrain:t.id,aGrams:+myGrams,bGrams:+theirGrams,accA:true,accB:false,status:'negotiating',recA:null,recB:null,created:Date.now()};db.swaps.push(w);
  msg(w.id,q.u.id,'offer',{text:`Offer: ${w.aGrams}g of ${m.name} for ${w.bGrams}g of ${t.name}`,aGrams:w.aGrams,bGrams:w.bGrams});if(note)msg(w.id,q.u.id,'text',{text:note});save();r.json({id:w.id})});
 app.get('/api/swaps',auth,(q,r)=>r.json(db.swaps.filter(w=>w.aId==q.u.id||w.bId==q.u.id).map(w=>swapView(w,q.u.id)).sort((a,b)=>(b.lastMsg?.at||0)-(a.lastMsg?.at||0))));
-app.get('/api/swaps/:id',auth,(q,r)=>{const w=SW(q,r);if(!w)return;w[w.aId==q.u.id?'seenA':'seenB']=Date.now();save();r.json({swap:swapView(w,q.u.id),messages:db.messages.filter(m=>m.swapId==w.id)})});
+app.get('/api/swaps/:id',auth,(q,r)=>{const w=SW(q,r);if(!w)return;r.json({swap:swapView(w,q.u.id),lastRead:w[w.aId==q.u.id?'seenA':'seenB']||0,messages:db.messages.filter(m=>m.swapId==w.id)})});
+app.post('/api/swaps/:id/read',auth,(q,r)=>{const w=SW(q,r);if(!w)return;const k=w.aId==q.u.id?'seenA':'seenB',t=Math.min(Date.now(),+q.body?.upTo||Date.now());if(t>(w[k]||0)){w[k]=t;save()}r.json({ok:1,lastRead:w[k]})});
 app.post('/api/swaps/:id/counter',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status!='negotiating')return r.status(400).json({error:'Deal already agreed'});
  const a=w.aId==q.u.id,mg=+q.body.myGrams,tg=+q.body.theirGrams;if(!(mg>0&&tg>0))return r.status(400).json({error:'Enter grams for both sides'});
  if(a){w.aGrams=mg;w.bGrams=tg}else{w.bGrams=mg;w.aGrams=tg}w.accA=a;w.accB=!a;
@@ -125,7 +126,7 @@ app.post('/api/swaps/:id/accept',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.
 app.post('/api/swaps/:id/decline',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status!='negotiating')return r.status(400).json({error:'Cannot cancel after deal agreed'});w.status='cancelled';msg(w.id,q.u.id,'system',{text:'❌ Swap cancelled'});save();r.json({ok:1})});
 app.post('/api/swaps/:id/messages',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(w.status=='cancelled')return r.status(400).json({error:'Swap cancelled'});const{text,courier,tracking,notes}=q.body;
  if(courier||tracking){if(w.status=='negotiating')return r.status(400).json({error:'Agree the deal first'});if(!courier||!tracking)return r.status(400).json({error:'Courier and tracking number required'});const sk=w.aId==q.u.id?'shipA':'shipB',prev=w[sk];w[sk+'History']=(w[sk+'History']||[]).concat(prev?[prev]:[]);w[sk]={courier,tracking,at:Date.now()};r.json(msg(w.id,q.u.id,'courier',{courier,tracking,notes:notes||'',updated:!!prev}))}
- else{if(!text?.trim())return r.status(400).json({error:'Empty'});r.json(msg(w.id,q.u.id,'text',{text:text.trim().slice(0,2000)}))}save()});
+ else{if(!text?.trim())return r.status(400).json({error:'Empty'});w[w.aId==q.u.id?'seenA':'seenB']=Date.now();r.json(msg(w.id,q.u.id,'text',{text:text.trim().slice(0,2000)}))}save()});
 app.post('/api/swaps/:id/receipt',auth,(q,r)=>{const w=SW(q,r);if(!w)return;if(!['agreed','completed'].includes(w.status))return r.status(400).json({error:'Deal not agreed yet'});
  const a=w.aId==q.u.id,k=a?'recA':'recB';if(w[k])return r.status(400).json({error:'Already marked'});const v=q.body.received?'received':'not_received';if(v=='not_received'&&!(a?w.shipB:w.shipA))return r.status(400).json({error:'You can report non-delivery once the other member has shared tracking'});w[k]=v;
  if(v=='not_received'){const o=U(a?w.bId:w.aId);const res=o?fileReport(q.u.id,o,'Non-delivery',q.body.reason||'',w.id):{};
