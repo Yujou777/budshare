@@ -48,7 +48,7 @@ app.post('/api/signup',(q,r)=>{const{email,password,name,dob,town,province,agree
 app.post('/api/login',(q,r)=>{const u=db.users.find(u=>u.email==(q.body.email||'').trim().toLowerCase());if(!u||!bcrypt.compareSync(q.body.password||'',u.pw))return r.status(400).json({error:'Wrong email or password'});if(u.banned)return r.status(403).json({error:'Account removed after repeated non-delivery reports'});q.session.uid=u.id;r.json({ok:1})});
 app.post('/api/logout',(q,r)=>{q.session=null;r.json({ok:1})});
 app.get('/api/invite/:code',(q,r)=>{const u=db.users.find(x=>x.code==String(q.params.code).toUpperCase()&&!x.banned);r.json(u?{name:u.name}:{})});
-app.get('/api/me',auth,(q,r)=>r.json({...pubU(q.u),inviteCode:code(q.u),email:q.u.email,isGrower:hasActive(q.u.id),admin:!!q.u.admin,reasons:REASONS,reportLimit:REPORT_LIMIT}));
+app.get('/api/me',auth,(q,r)=>r.json({...pubU(q.u),inviteCode:code(q.u),email:q.u.email,isGrower:hasActive(q.u.id),admin:!!q.u.admin,reasons:REASONS,reportLimit:REPORT_LIMIT,needsDob:!u18ok(q.u)}));
 app.post('/api/me',auth,up.single('photo'),toDb,(q,r)=>{const b=q.body;['name','town','province','country'].forEach(k=>b[k]&&(q.u[k]=b[k].trim().slice(0,80)));if(q.file)q.u.photo='/uploads/'+q.file.filename;if(b.removePhoto)q.u.photo=null;save();r.json({ok:1})});
 app.get('/api/users/:id',auth,(q,r)=>{const u=U(q.params.id);if(!u||u.banned)return r.status(404).json({error:'Not found'});r.json({user:pubU(u),strains:db.strains.filter(s=>s.userId==u.id&&s.active).map(pubS)})});
 app.get('/api/meta',(q,r)=>r.json({types:TYPES,methods:METHODS,reportLimit:REPORT_LIMIT,disclaimer:DISCLAIMER}));
@@ -151,6 +151,11 @@ app.post('/api/push/subscribe',auth,(q,r)=>{const sub=q.body?.sub;if(!sub?.endpo
 app.post('/api/push/unsubscribe',auth,(q,r)=>{const e=q.body?.endpoint;db.pushsubs=(db.pushsubs||[]).filter(s=>!(s.userId==q.u.id&&(!e||s.sub.endpoint==e)));save();r.json({ok:1})});
 app.post('/api/me/notif',auth,(q,r)=>{const b=q.body||{};const cur=nprefs(q.u);const types={...cur.types};for(const k in NTYPES)if(k in (b.types||{}))types[k]=!!b.types[k];q.u.notif={types,previews:'previews' in b?!!b.previews:cur.previews,email:'email' in b?!!b.email:cur.email};save();r.json({ok:1,prefs:nprefs(q.u)})});
 app.post('/api/push/test',auth,async(q,r)=>{const n=await pushTo(q.u.id,{title:'Bud Share',body:'✅ Notifications are working on this device',url:'#/profile',tag:'test',ts:Date.now()});r.json({ok:1,sent:n})});
+const u18ok=u=>!!u.dob&&!isNaN(new Date(u.dob))&&age(u.dob)>=18;
+// existing members without a DOB are asked on next login; under-18 -> account removed
+app.post('/api/me/dob',auth,(q,r)=>{const d=String(q.body?.dob||'');if(isNaN(new Date(d)))return r.status(400).json({error:'Enter a valid date of birth'});
+ if(age(d)<18){q.u.dob=d;removeUser(q.u);db.reports.push({id:id(),by:q.u.id,against:q.u.id,reason:'Under 18',note:'Self-declared DOB under 18 at login prompt',at:Date.now(),status:'open'});save();q.session=null;return r.status(403).json({error:'Bud Share is for adults 18+ only. Your account has been closed.'})}
+ q.u.dob=d;q.u.dobConfirmedAt=Date.now();save();r.json({ok:1})});
 app.post('/api/swaps',auth,grower,(q,r)=>{const{myStrain,myGrams,theirStrain,theirGrams,note}=q.body;const m=S(myStrain),t=S(theirStrain);
  if(!m||m.userId!=q.u.id||!m.active||!t||!t.active||t.userId==q.u.id)return r.status(400).json({error:'Pick one of your strains and one of theirs'});
  if(!(myGrams>0&&theirGrams>0))return r.status(400).json({error:'Enter grams for both sides'});

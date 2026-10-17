@@ -206,9 +206,11 @@ async function notifCard(){const el=$('#ncard');if(!el)return;let cfg;try{cfg=aw
  el.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=save);
  $('#non')&&($('#non').onclick=()=>enablePush(cfg));$('#ntest')&&($('#ntest').onclick=async()=>{const r=await api('/push/test',{body:{}});toast(r.sent?'Test sent – check your notifications':'No device received it')});
  $('#noff')&&($('#noff').onclick=async()=>{const s=await pushSub();if(s){await api('/push/unsubscribe',{body:{endpoint:s.endpoint}});await s.unsubscribe()}notifCard()})}
+async function dobPrompt(){return new Promise(ok=>{const m=document.createElement('div');m.className='modal';m.innerHTML=`<div><form><h3>Please confirm your date of birth</h3><p class="muted">Bud Share is for adults 18+ only. We need your date of birth to keep your account active.</p><label>Date of birth</label><input type="date" name="dob" required><button class="btn">Confirm</button></form></div>`;document.body.append(m);
+ m.querySelector('form').onsubmit=async e=>{e.preventDefault();try{await api('/me/dob',{body:{dob:e.target.dob.value}});m.remove();ME.needsDob=false;ok()}catch(x){toast(x.message);if(x.status==403){m.remove();ME=null;location.hash='#/login';ok()}}}})}
 // ---------- router
 async function route(){const h=location.hash.slice(2).split('/');if(!META)META=await api('/meta');if(ME===null)await loadMe();
- if(h[0]=='terms')return shell('Terms',terms,'',1);if(!ME)return vAuth(h[0]=='signup'?'signup':'login');
+ if(h[0]=='terms')return shell('Terms',terms,'',1);if(!ME)return vAuth(h[0]=='signup'?'signup':'login');if(ME.needsDob)await dobPrompt();if(!ME)return vAuth('login');
  try{switch(h[0]){case'strain':return vStrain(h[1]);case'user':return vUser(h[1]);case'swaps':return vSwaps();case'chat':return vChat(h[1]);case'c':return vConv(h[1]);
   case'strains':return h[1]=='new'?vEdit():h[1]=='edit'?vEdit(h[2]):vMyStrains();case'profile':return vProfile();case'admin':return vAdmin();default:return vBrowse()}}catch(e){if(e.status==401||e.status==403&&e.code!='grower_only'){ME=null;toast(e.message);return vAuth()}toast(e.message)}}
 addEventListener('hashchange',route);route();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sw.js');
