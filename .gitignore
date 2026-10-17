@@ -7,3 +7,4 @@ uploads/*
 .env
 .site_pass
 .database_url
+.vapid

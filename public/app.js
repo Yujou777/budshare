@@ -117,7 +117,7 @@ const ST={negotiating:'🟠 Negotiating',agreed:'🟢 Deal agreed',completed:'�
 const actionable=w=>['negotiating','agreed'].includes(w.status)||(w.status=='completed'&&w.myReceipt=='received'&&!w.iRated);
 async function vConv(oid){clearInterval(poll);let lastTop='',lastHd='',built=false,rdT=null,sel=null,first=true;const shown=new Set();
  const sending=async v=>{try{await api(`/convs/${oid}/messages`,{body:{text:v}});draw()}catch(e){toast(e.message)}};
- async function draw(force){const d=await api('/convs/'+oid);const{swaps,messages}=d,o=d.other;if(location.hash!='#/c/'+oid)return;
+ async function draw(force){const d=await api('/convs/'+oid+(document.visibilityState=='visible'?'?vis=1':''));const{swaps,messages}=d,o=d.other;if(location.hash!='#/c/'+oid)return;
  if(!built){built=true;A.innerHTML=`<header id="hd"></header><div id="top"></div><div class="chat" id="ch"></div><div class="chatfoot" id="cfoot"><div class="acts" id="acts"></div><form class="compose" id="cf"><input id="ci" placeholder="Message" autocomplete="off" enterkeyhint="send"><button aria-label="Send">➤</button></form></div>`;document.body.classList.add("in-chat");
   $('#cf').onsubmit=e=>{e.preventDefault();const i=$('#ci'),v=i.value;if(v.trim()){i.value='';i.focus();sending(v)}}}
  const acts=swaps.filter(actionable);if(!sel||!swaps.find(w=>w.id==sel))sel=(acts[acts.length-1]||swaps[swaps.length-1]).id;const w=swaps.find(x=>x.id==sel);
@@ -181,9 +181,31 @@ async function vProfile(){await loadMe();await geo();const u=ME;shell('Profile',
  <div style="margin:8px 0;font-size:14px">Your code: <b>${u.inviteCode}</b></div><input id="il" readonly value="${location.origin}/join?ref=${u.inviteCode}">
  <button class="btn sm" id="ish">📤 Share invite</button><button class="btn sm sec" id="icp">📋 Copy link</button></div>
  <form class="pad" id="f"><label>Profile photo (optional)</label><input type="file" name="photo" accept="image/*"><label>Name</label><input name="name" value="${esc(u.name)}">${locFields(u.country||'South Africa',u.province)}<input name="town" value="${esc(u.town)}"><button class="btn">Save profile</button></form>
- <div class="card pad"><h3 style="margin:0 0 6px">ℹ️ About Bud Share</h3><div class="muted">A grower-to-grower swap network. 18+ only, swaps only – no money changes hands.</div>${discBox()}</div><div class="pad">${u.admin?'<a class="btn" href="#/admin">🛡 Admin: reports</a>':''}<a class="btn sec" href="#/terms">Terms</a><button class="btn sec" id="lo">Log out</button></div>`,'profile');
- bindLoc();$('#ish').onclick=()=>shareSheet('Join me on Bud Share – craft growers network (18+, swaps only, no sales)');$('#icp').onclick=async()=>{try{await navigator.clipboard.writeText(invLink())}catch(e){$('#il').select();document.execCommand('copy')}toast('Invite link copied')};
+ <div class="card pad" id="ncard"><h3 style="margin:0 0 6px">🔔 Notifications</h3><div class="muted">Loading…</div></div><div class="card pad"><h3 style="margin:0 0 6px">ℹ️ About Bud Share</h3><div class="muted">A grower-to-grower swap network. 18+ only, swaps only – no money changes hands.</div>${discBox()}</div><div class="pad">${u.admin?'<a class="btn" href="#/admin">🛡 Admin: reports</a>':''}<a class="btn sec" href="#/terms">Terms</a><button class="btn sec" id="lo">Log out</button></div>`,'profile');
+ bindLoc();notifCard();$('#ish').onclick=()=>shareSheet('Join me on Bud Share – craft growers network (18+, swaps only, no sales)');$('#icp').onclick=async()=>{try{await navigator.clipboard.writeText(invLink())}catch(e){$('#il').select();document.execCommand('copy')}toast('Invite link copied')};
  $('#f').onsubmit=async e=>{e.preventDefault();await api('/me',{body:await shrinkForm(e.target)});toast('Saved');vProfile()};$('#lo').onclick=async()=>{await api('/logout',{body:{}});ME=null;location.hash='#/login'}}
+// ---------- notifications
+const isStandalone=()=>matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+const isIOS=()=>/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform=='MacIntel'&&navigator.maxTouchPoints>1);
+const b64u=s=>{const p='='.repeat((4-s.length%4)%4),b=atob((s+p).replace(/-/g,'+').replace(/_/g,'/'));return Uint8Array.from([...b].map(c=>c.charCodeAt(0)))};
+async function pushSub(){const reg=await navigator.serviceWorker.ready;return reg.pushManager.getSubscription()}
+async function enablePush(cfg){try{const perm=await Notification.requestPermission();if(perm!='granted'){toast('Notifications were not allowed. You can enable them in your phone settings.');return notifCard()}
+ const reg=await navigator.serviceWorker.ready;let sub=await reg.pushManager.getSubscription();if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64u(cfg.publicKey)});
+ await api('/push/subscribe',{body:{sub:sub.toJSON()}});toast('🔔 Notifications on for this device');notifCard()}catch(e){toast('Could not enable: '+e.message)}}
+async function notifCard(){const el=$('#ncard');if(!el)return;let cfg;try{cfg=await api('/push/config')}catch(e){el.innerHTML='<h3 style="margin:0">🔔 Notifications</h3><div class="muted">Unavailable</div>';return}
+ const sup='serviceWorker' in navigator&&'PushManager' in window&&'Notification' in window;let sub=null;if(sup)sub=await pushSub().catch(()=>null);const on=sup&&Notification.permission=='granted'&&sub;
+ let top='';if(!cfg.publicKey)top='<div class="muted">Push is not configured on the server yet.</div>';
+ else if(isIOS()&&!isStandalone())top=`<div class="disc sm">📲 On iPhone, notifications only work in the installed app: tap <b>Share</b> → <b>Add to Home Screen</b>, open Bud Share from the icon, then tap “Enable notifications” here. (iOS 16.4 or newer.)</div>`;
+ else if(!sup)top='<div class="muted">This browser does not support push notifications.</div>';
+ else if(on)top=`<div>✅ On for this device <span class="muted">(${cfg.devices} device${cfg.devices==1?'':'s'})</span></div><button class="btn sm sec" id="ntest">Send test</button><button class="btn sm sec" id="noff">Turn off on this device</button>`;
+ else if(Notification.permission=='denied')top='<div class="muted">Notifications are blocked for Bud Share. Allow them in your browser/phone settings, then come back.</div>';
+ else top='<button class="btn sm" id="non">🔔 Enable notifications</button>';
+ el.innerHTML=`<h3 style="margin:0 0 6px">🔔 Notifications</h3>${top}<div style="margin-top:8px">${Object.entries(cfg.types).filter(([k])=>k!='admin'||ME.admin).map(([k,l])=>`<label class="chk" style="font-weight:400;margin:4px 0"><input type="checkbox" data-nt="${k}" ${cfg.prefs.types[k]?'checked':''}> ${esc(l)}</label>`).join('')}
+ <label class="chk" style="font-weight:400;margin:4px 0"><input type="checkbox" id="nprev" ${cfg.prefs.previews?'checked':''}> Show sender name & message preview</label>${cfg.email?`<label class="chk" style="font-weight:400;margin:4px 0"><input type="checkbox" id="nemail" ${cfg.prefs.email?'checked':''}> Email me when push isn't available</label>`:''}</div>`;
+ const save=async()=>{const types={};el.querySelectorAll('[data-nt]').forEach(c=>types[c.dataset.nt]=c.checked);await api('/me/notif',{body:{types,previews:$('#nprev').checked,...($('#nemail')?{email:$('#nemail').checked}:{})}});toast('Saved')};
+ el.querySelectorAll('input[type=checkbox]').forEach(c=>c.onchange=save);
+ $('#non')&&($('#non').onclick=()=>enablePush(cfg));$('#ntest')&&($('#ntest').onclick=async()=>{const r=await api('/push/test',{body:{}});toast(r.sent?'Test sent – check your notifications':'No device received it')});
+ $('#noff')&&($('#noff').onclick=async()=>{const s=await pushSub();if(s){await api('/push/unsubscribe',{body:{endpoint:s.endpoint}});await s.unsubscribe()}notifCard()})}
 // ---------- router
 async function route(){const h=location.hash.slice(2).split('/');if(!META)META=await api('/meta');if(ME===null)await loadMe();
  if(h[0]=='terms')return shell('Terms',terms,'',1);if(!ME)return vAuth(h[0]=='signup'?'signup':'login');

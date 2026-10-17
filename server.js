@@ -91,7 +91,7 @@ app.post('/api/posts/:id/delete',auth,(q,r)=>{db.posts=P().filter(p=>!(p.id==q.p
 app.get('/api/users/:id/posts',auth,(q,r)=>r.json(P().filter(p=>p.userId==q.params.id).sort((a,b)=>b.at-a.at).map(p=>pubP(p,q.u.id))));
 const REASONS=['Non-delivery','Selling / asking for money','Under 18','Fake photos/listing','Harassment/abuse','Other'];
 function fileReport(by,o,reason,note,swapId){if(db.reports.some(x=>x.by==by&&x.against==o.id&&x.reason==reason))return{dup:1};
- db.reports.push({id:id(),by,against:o.id,reason,note:(note||'').slice(0,1000),swapId:swapId||null,at:Date.now(),status:'open'});
+ db.reports.push({id:id(),by,against:o.id,reason,note:(note||'').slice(0,1000),swapId:swapId||null,at:Date.now(),status:'open'});try{notifyAdmins(`🚩 New report: ${reason} – ${o.name}`)}catch(e){}
  if(reason=='Non-delivery'){o.reports=(o.reports||0)+1;if(o.reports>=REPORT_LIMIT)removeUser(o)}return{ok:1}}
 function removeUser(o){o.banned=true;o.deleted=true;db.strains.filter(s=>s.userId==o.id).forEach(s=>s.active=false);db.swaps.filter(x=>(x.aId==o.id||x.bId==o.id)&&x.status=='negotiating').forEach(x=>x.status='cancelled')}
 app.post('/api/users/:id/report',auth,(q,r)=>{const o=U(q.params.id);if(!o||o.id==q.u.id)return r.status(400).json({error:'Cannot report this member'});const{reason,note,swapId}=q.body||{};
@@ -106,10 +106,51 @@ app.post('/api/admin/reports/:id',auth,admin,(q,r)=>{const x=db.reports.find(x=>
  if(q.body.action=='resolve')x.status='resolved';if(q.body.action=='remove'){const o=db.users.find(u=>u.id==x.against);o&&removeUser(o);x.status='resolved'}save();r.json({ok:1})});
 // swaps
 const pairKey=(a,b)=>Math.min(a,b)+'-'+Math.max(a,b);const swapPair=sid=>{const w=db.swaps.find(x=>x.id==sid);return w?pairKey(w.aId,w.bId):null};
-const msg=(swapId,userId,type,o={})=>{const m={id:id(),swapId,pair:swapPair(swapId),userId,type,at:Date.now(),...o};db.messages.push(m);return m};
+const msg=(swapId,userId,type,o={})=>{const m={id:id(),swapId,pair:swapPair(swapId),userId,type,at:Date.now(),...o};db.messages.push(m);try{notifyMsg(m)}catch(e){console.error('notify',e.message)}return m};
 const swapView=(w,uid)=>{const mine=w.aId==uid,other=U(mine?w.bId:w.aId)||{id:0,name:'Removed member'};
  return{...w,me:mine?'a':'b',other:pubU(other)||{name:'Removed member'},myStrain:pubS(S(mine?w.aStrain:w.bStrain)),theirStrain:pubS(S(mine?w.bStrain:w.aStrain)),myGrams:mine?w.aGrams:w.bGrams,theirGrams:mine?w.bGrams:w.aGrams,iAccepted:mine?w.accA:w.accB,theyAccepted:mine?w.accB:w.accA,myReceipt:mine?w.recA:w.recB,myShip:(mine?w.shipA:w.shipB)||null,theirShip:(mine?w.shipB:w.shipA)||null,theirReceipt:mine?w.recB:w.recA,iRated:db.ratings.some(x=>x.swapId==w.id&&x.raterId==uid),lastMsg:db.messages.filter(m=>m.swapId==w.id).slice(-1)[0],unread:db.messages.filter(m=>m.swapId==w.id&&m.userId!=uid&&m.at>((mine?w.seenA:w.seenB)||0)).length}};
 const SW=(q,r)=>{const w=db.swaps.find(w=>w.id==q.params.id&&(w.aId==q.u.id||w.bId==q.u.id));if(!w)r.status(404).json({error:'Not found'});return w};
+
+// ---------- notifications (Web Push + optional email fallback behind a provider interface)
+const webpush=require('web-push');const VAPID={pub:process.env.VAPID_PUBLIC_KEY,priv:process.env.VAPID_PRIVATE_KEY,subj:process.env.VAPID_SUBJECT||'https://budshare.onrender.com'};
+if(VAPID.pub&&VAPID.priv)webpush.setVapidDetails(VAPID.subj,VAPID.pub,VAPID.priv);
+const NTYPES={message:'New chat messages',offer:'New swap offers',counter:'Counter-offers',agreed:'Deal agreed',courier:'Courier / tracking shared',received:'Parcel marked received / not received',rating:'New ratings',admin:'Admin: new reports & reviews'};
+const nprefs=u=>{const p=u.notif||{};const types={};for(const k in NTYPES)types[k]=p.types?.[k]!==false;return{types,previews:p.previews!==false,email:!!p.email}};
+// presence: which conversation a member is actively viewing (from chat polling while visible)
+const presence=new Map();const viewing=(uid,oid)=>{const p=presence.get(uid);return p&&p.oid==oid&&Date.now()-p.at<9000};
+// email provider interface – disabled unless EMAIL_PROVIDER + EMAIL_API_KEY + EMAIL_FROM are configured
+const EMAIL={provider:process.env.EMAIL_PROVIDER||'',key:process.env.EMAIL_API_KEY||'',from:process.env.EMAIL_FROM||''};
+const emailProviders={
+ resend:async(to,subj,text)=>fetch('https://api.resend.com/emails',{method:'POST',headers:{Authorization:'Bearer '+EMAIL.key,'Content-Type':'application/json'},body:JSON.stringify({from:EMAIL.from,to:[to],subject:subj,text})}),
+ brevo:async(to,subj,text)=>fetch('https://api.brevo.com/v3/smtp/email',{method:'POST',headers:{'api-key':EMAIL.key,'Content-Type':'application/json'},body:JSON.stringify({sender:{email:EMAIL.from,name:'Bud Share'},to:[{email:to}],subject:subj,textContent:text})}),
+};
+const sendEmail=async(u,subj,text)=>{const f=emailProviders[EMAIL.provider];if(!f||!EMAIL.key||!EMAIL.from)return false;try{const r=await f(u.email,subj,text);return r.ok}catch(e){return false}};
+async function pushTo(uid,payload){const subs=(db.pushsubs||[]).filter(s=>s.userId==uid);let sent=0;
+ for(const s of subs){try{await webpush.sendNotification(s.sub,JSON.stringify(payload),{TTL:3600,urgency:'normal',topic:(payload.tag||'').replace(/[^A-Za-z0-9_-]/g,'').slice(0,32)||undefined});s.lastOk=Date.now();sent++}
+  catch(e){if(e.statusCode==404||e.statusCode==410){db.pushsubs=db.pushsubs.filter(x=>x!==s)}else console.error('push',e.statusCode||e.message)}}
+ if(sent||subs.length)save();return sent}
+// burst grouping: per member+tag, max one push per 20s; extra events are summarised in a follow-up
+const bursts=new Map();
+function notify(uid,type,{title,body,url,tag,from}){const u=U(uid);if(!u||u.banned)return;const p=nprefs(u);if(!p.types[type])return;
+ const t=p.previews?title:'Bud Share',b=p.previews?body:'You have a new notification';const k=uid+'|'+tag,now=Date.now(),st=bursts.get(k);
+ const fire=(n)=>{const payload={title:t,body:n>1&&p.previews?`${n} new updates – latest: ${b}`:n>1?`${n} new notifications`:b,url,tag,ts:Date.now()};
+  if(!VAPID.pub)return;pushTo(uid,payload).then(sent=>{if(!sent&&p.email)sendEmail(u,'Bud Share: '+payload.title,payload.body+'\n\nOpen Bud Share: https://budshare.onrender.com/'+(url||''))})};
+ if(st&&now-st.at<20000){st.n++;st.last=b;if(!st.timer)st.timer=setTimeout(()=>{const x=bursts.get(k);bursts.set(k,{at:Date.now(),n:0});if(x&&x.n)fire(x.n+0)},20000-(now-st.at));return}
+ bursts.set(k,{at:now,n:0});fire(1)}
+function notifyMsg(m){const w=db.swaps.find(x=>x.id==m.swapId);if(!w)return;const to=m.userId==w.aId?w.bId:w.aId,from=U(m.userId);if(!from)return;if(viewing(to,m.userId))return;
+ let type=null,body='';const sw=`Swap #${w.id}`;
+ if(m.type=='text'){type='message';body=m.text}
+ else if(m.type=='offer'){type=/^Counter/.test(m.text)?'counter':'offer';body=m.text}
+ else if(m.type=='courier'){type='courier';body=`📦 Shared tracking for ${(m.swapIds||[w.id]).map(i=>'#'+i).join(', ')}: ${m.courier}`}
+ else if(m.type=='system'){const x=m.text||'';if(/^✅ Deal agreed/.test(x)){type='agreed';body=x}else if(/^📦 Parcel marked as received/.test(x)){type='received';body=`${sw}: marked your parcel as received`}else if(/NOT received/.test(x)){type='received';body=`${sw}: marked parcel NOT received`}else if(/^⭐ Rated/.test(x)){type='rating';body=`${sw}: ${x.replace('⭐ ','')}`}}
+ if(!type)return;notify(to,type,{title:from.name,body:String(body).slice(0,140),url:'#/c/'+m.userId,tag:'conv-'+Math.min(to,m.userId)+'-'+Math.max(to,m.userId)})}
+function notifyAdmins(body,url){db.users.filter(u=>u.admin).forEach(a=>notify(a.id,'admin',{title:'Bud Share admin',body,url:url||'#/admin',tag:'admin'}))}
+app.get('/api/push/config',auth,(q,r)=>r.json({publicKey:VAPID.pub||null,types:NTYPES,prefs:nprefs(q.u),devices:(db.pushsubs||[]).filter(s=>s.userId==q.u.id).length,email:!!(emailProviders[EMAIL.provider]&&EMAIL.key&&EMAIL.from)}));
+app.post('/api/push/subscribe',auth,(q,r)=>{const sub=q.body?.sub;if(!sub?.endpoint||!sub.keys?.p256dh||!sub.keys?.auth)return r.status(400).json({error:'Invalid subscription'});db.pushsubs=db.pushsubs||[];
+ const ex=db.pushsubs.find(s=>s.sub.endpoint==sub.endpoint);if(ex){ex.userId=q.u.id;ex.sub=sub;ex.at=Date.now()}else db.pushsubs.push({id:id(),userId:q.u.id,sub,ua:String(q.headers['user-agent']||'').slice(0,160),at:Date.now()});save();r.json({ok:1})});
+app.post('/api/push/unsubscribe',auth,(q,r)=>{const e=q.body?.endpoint;db.pushsubs=(db.pushsubs||[]).filter(s=>!(s.userId==q.u.id&&(!e||s.sub.endpoint==e)));save();r.json({ok:1})});
+app.post('/api/me/notif',auth,(q,r)=>{const b=q.body||{};const cur=nprefs(q.u);const types={...cur.types};for(const k in NTYPES)if(k in (b.types||{}))types[k]=!!b.types[k];q.u.notif={types,previews:'previews' in b?!!b.previews:cur.previews,email:'email' in b?!!b.email:cur.email};save();r.json({ok:1,prefs:nprefs(q.u)})});
+app.post('/api/push/test',auth,async(q,r)=>{const n=await pushTo(q.u.id,{title:'Bud Share',body:'✅ Notifications are working on this device',url:'#/profile',tag:'test',ts:Date.now()});r.json({ok:1,sent:n})});
 app.post('/api/swaps',auth,grower,(q,r)=>{const{myStrain,myGrams,theirStrain,theirGrams,note}=q.body;const m=S(myStrain),t=S(theirStrain);
  if(!m||m.userId!=q.u.id||!m.active||!t||!t.active||t.userId==q.u.id)return r.status(400).json({error:'Pick one of your strains and one of theirs'});
  if(!(myGrams>0&&theirGrams>0))return r.status(400).json({error:'Enter grams for both sides'});
@@ -138,7 +179,7 @@ const convMsgs=(uid,oid)=>{const ws=pairSwaps(uid,oid),ids=new Set(ws.map(w=>w.i
 app.get('/api/convs',auth,(q,r)=>{const by={};for(const w of db.swaps){if(w.aId!=q.u.id&&w.bId!=q.u.id)continue;const o=w.aId==q.u.id?w.bId:w.aId;(by[o]=by[o]||[]).push(w)}
  r.json(Object.entries(by).map(([o,ws])=>{const ms=convMsgs(q.u.id,+o),last=ms[ms.length-1];const views=ws.map(w=>swapView(w,q.u.id));
   return{otherId:+o,other:views[0].other,swaps:views.map(v=>({id:v.id,status:v.status,myStrain:v.myStrain?.name,theirStrain:v.theirStrain?.name})),active:views.filter(v=>['negotiating','agreed'].includes(v.status)).length,lastMsg:last||null,unread:ms.filter(m=>isUnread(m,q.u.id)).length}}).sort((a,b)=>(b.lastMsg?.at||0)-(a.lastMsg?.at||0)))});
-app.get('/api/convs/:oid',auth,(q,r)=>{const oid=+q.params.oid,ws=pairSwaps(q.u.id,oid);if(!ws.length)return r.status(404).json({error:'No chat with this member yet'});
+app.get('/api/convs/:oid',auth,(q,r)=>{if(q.query.vis=='1')presence.set(q.u.id,{oid:+q.params.oid,at:Date.now()});const oid=+q.params.oid,ws=pairSwaps(q.u.id,oid);if(!ws.length)return r.status(404).json({error:'No chat with this member yet'});
  const multi=ws.length>1,lab=Object.fromEntries(ws.map(w=>[w.id,swapLabel(w)]));
  r.json({other:swapView(ws[0],q.u.id).other,swaps:ws.map(w=>swapView(w,q.u.id)),messages:convMsgs(q.u.id,oid).map(m=>({...m,unread:isUnread(m,q.u.id),swapLabel:(m.swapIds||[m.swapId]).map(i=>lab[i]?`Swap #${i}`:'').filter(Boolean).join(' + '),swapFull:lab[m.swapId]||''}))})});
 app.post('/api/convs/:oid/read',auth,(q,r)=>{const ws=pairSwaps(q.u.id,+q.params.oid),t=Math.min(Date.now(),+q.body?.upTo||Date.now());ws.forEach(w=>{const k=seenK(w,q.u.id);if(t>(w[k]||0))w[k]=t});save();r.json({ok:1})});
@@ -167,7 +208,7 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
  if(ok){db=await store.load();
   if(!db.users.length){console.log('DB empty - seeding demo data');require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF));
    console.log('imported files',await store.importDir(path.join(__dirname,'uploads')));await store.flushNow(db)}
-  db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
+ db.pushsubs=db.pushsubs||[]; db.posts=db.posts||[];db.comments=db.comments||[];db.reports=db.reports||[];console.log('Loaded from Postgres:',store.COLLS.map(c=>c+'='+(db[c]||[]).length).join(' '))}
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
  db.users.forEach(u=>{code(u);if(!u.country)u.country='South Africa'});
  {let n=0;db.messages.forEach(m=>{if(!m.pair){const k=swapPair(m.swapId);if(k){m.pair=k;n++}}});if(n){console.log('conv-migrate: tagged',n,'messages with pair key');save()}}
