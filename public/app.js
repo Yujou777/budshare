@@ -48,7 +48,7 @@ const terms=`<div class="pad"><h2>Bud Share terms</h2><div class="disc">⚠️ $
 let viewerOn=false;
 function openViewer(src){if(!src)return;closeViewer(1);viewerOn=true;const isPdf=/\.pdf($|\?)/i.test(src);
  const v=document.createElement('div');v.className='viewer';v.id='viewer';
- v.innerHTML=`<div class="vbar"><button type="button" class="vbtn" id="vback" aria-label="Back">←</button><span class="vt">${isPdf?'Certificate of Analysis':'Photo'}</span><button type="button" class="vbtn" id="vclose" aria-label="Close">✕</button></div><div class="vbody">${isPdf?`<iframe src="${esc(src)}" title="COA"></iframe>`:`<img src="${esc(src)}" alt="">`}</div>`;
+ v.innerHTML=`<div class="vbar"><button type="button" class="vbtn" id="vback" aria-label="Back">←</button><span class="vt">${isPdf||/coa/i.test(src)?'Certificate of Analysis':'Photo'}</span><button type="button" class="vbtn" id="vclose" aria-label="Close">✕</button></div><div class="vbody">${isPdf?`<iframe src="${esc(src)}" title="COA"></iframe>`:`<img src="${esc(src)}" alt="">`}</div>`;
  document.body.append(v);document.body.style.overflow='hidden';
  try{history.pushState({bsViewer:1},'')}catch(e){}
  const done=()=>closeViewer();v.querySelector('#vclose').onclick=()=>{if(history.state&&history.state.bsViewer)history.back();else closeViewer()};
