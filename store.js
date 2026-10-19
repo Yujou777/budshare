@@ -1,6 +1,6 @@
 // Postgres persistence: one JSONB table per collection + bytea table for files. Falls back to JSON file when no DATABASE_URL.
 const fs=require('fs'),path=require('path');
-const COLLS=['users','strains','posts','comments','swaps','messages','ratings','reports','pushsubs'];
+const COLLS=['users','strains','posts','comments','swaps','messages','ratings','reports','pushsubs','follows'];
 const URL_=process.env.DATABASE_URL;let pool=null;const snap={};let pending=null,running=false,dirty=false;
 const mime=n=>({'.jpg':'image/jpeg','.jpeg':'image/jpeg','.png':'image/png','.webp':'image/webp','.gif':'image/gif','.svg':'image/svg+xml','.pdf':'application/pdf','.heic':'image/heic'})[path.extname(n).toLowerCase()]||'application/octet-stream';
 async function init(){if(!URL_)return false;const{Pool}=require('pg');if(pool){await pool.end().catch(()=>{});pool=null}
