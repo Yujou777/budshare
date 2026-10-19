@@ -58,9 +58,9 @@ let FOL=null,FOLLIST=[];
 async function loadFol(){if(FOL)return;try{FOLLIST=await api('/following');FOL=new Set(FOLLIST.map(x=>x.user.id))}catch(e){FOL=new Set()}}
 const folBtn=(u,cls='')=>{if(!u||!ME||u.id==ME.id)return'';const on=FOL&&FOL.has(u.id);return `<button class="btn sm ${on?'':'sec'} folbtn ${cls}" data-fol="${u.id}">${on?'✓ Following':'＋ Follow grower'}</button>`};
 function bindFol(root=document){root.querySelectorAll('[data-fol]').forEach(b=>{if(b._fb)return;b._fb=1;b.onclick=async e=>{e.preventDefault();e.stopPropagation();const id=+b.dataset.fol;try{const r=await api(`/users/${id}/follow`,{body:{}});FOL=FOL||new Set();r.following?FOL.add(id):FOL.delete(id);FOLLIST=[];
- document.querySelectorAll(`[data-fol="${id}"]`).forEach(x=>{x.textContent=r.following?'✓ Following':'＋ Follow grower';x.classList.toggle('sec',!r.following)});toast(r.following?'Following grower 🌱':'Unfollowed')}catch(x){toast(x.message)}}})}
+ document.querySelectorAll(`[data-fol="${id}"]`).forEach(x=>{x.textContent=r.following?'✓ Following':'＋ Follow grower';x.classList.toggle('sec',!r.following)});document.querySelectorAll(`[data-fcount="${id}"]`).forEach(x=>x.textContent=r.followerCount);toast(r.following?'Following grower 🌱':'Unfollowed')}catch(x){toast(x.message)}}})}
 const lastAct=u=>{if(!u.lastSeen)return'';const m=(Date.now()-u.lastSeen)/60000;return m<5?' · 🟢 Online':m<60?` · Last active ${Math.floor(m)}m ago`:m<1440?` · Last active ${Math.floor(m/60)}h ago`:` · Last active ${Math.floor(m/1440)}d ago`};
-const folCounts=u=>`<span class="muted"><b>${u.followerCount||0}</b> followers · <b>${u.followingCount||0}</b> following</span>`;
+const folCounts=u=>`<span class="muted"><b data-fcount="${u.id}">${u.followerCount||0}</b> followers · <b>${u.followingCount||0}</b> following</span>`;
 const mutualTag=u=>u.iFollow&&u.followsMe?' <span class="chip v18">🤝 Mutual</span>':u.followsMe?' <span class="chip v18">Follows you</span>':'';
 // ---------- browse
 let F={sort:'near'},VIEW='feed';
