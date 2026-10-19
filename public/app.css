@@ -69,3 +69,4 @@ body.in-chat #app{padding-bottom:0}
 
 .folbtn{margin-top:6px;padding:5px 10px!important;font-size:12px!important}.row .folbtn{margin:0 0 0 8px;align-self:center;flex:0 0 auto}
 .heldmsg{opacity:.75;outline:1px dashed #ffb300}
+.searchbar{position:sticky;top:106px;z-index:4;display:flex;align-items:center;gap:8px;padding:10px 12px;background:#0d0d0d;border-bottom:1px solid #1d1d1d}.searchbar input{flex:1;font-size:16px;padding:11px 14px;border-radius:22px}.searchbar button{flex:0 0 auto;width:34px;height:34px;border-radius:50%;border:1px solid #333;background:#1a1a1a;color:#eee;font-size:15px}.rcount,#rcount{padding:8px 14px 0;font-size:13px;color:#9fb3a8}.rcount b,#rcount b{color:#25D366}

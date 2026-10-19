@@ -72,21 +72,23 @@ app.post('/api/strains/:id',auth,sf,toDb,(q,r)=>{const s=S(q.params.id);if(!s||s
  if(b.name)s.name=b.name;if(TYPES.includes(b.type))s.type=b.type;if(METHODS.includes(b.method))s.method=b.method;if('organic'in b)s.organic=b.organic=='true'||b.organic=='on';if('description'in b)s.description=b.description;if('active'in b)s.active=b.active=='true';
  s.flowerPhotos.push(...fl(q,'flower'));s.driedPhotos.push(...fl(q,'dried'));s.extraPhotos.push(...fl(q,'extra'));if(fl(q,'coa')[0])s.coa=fl(q,'coa')[0];if(b.removeCoa)s.coa=null;if(b.remove){s.removed=true;s.active=false}save();r.json(pubS(s))});
 app.get('/api/strains/:id',auth,(q,r)=>{const s=S(q.params.id);if(!s||s.removed)return r.status(404).json({error:'Not found'});if(s.modHeld&&s.userId!=q.u.id&&!q.u.admin)return r.status(404).json({error:'Not found'});if(s.userId!=q.u.id&&!hasActive(q.u.id))return r.status(403).json({error:'grower_only'});r.json(pubS(s))});
-app.get('/api/browse',auth,grower,(q,r)=>{const{type,method,organic,province,town,q:t,lab,country,following}=q.query;
+app.get('/api/browse',auth,grower,(q,r)=>{const{type,method,organic,province,town,q:t,lab,country,following,minrating}=q.query;
  let l=db.strains.filter(s=>s.active&&!s.modHeld&&s.userId!=q.u.id&&U(s.userId)&&!U(s.userId).banned);
  if(type)l=l.filter(s=>s.type==type);if(method)l=l.filter(s=>s.method==method);if(organic)l=l.filter(s=>s.organic);if(lab)l=l.filter(s=>s.coa);
  if(country)l=l.filter(s=>(U(s.userId).country||'South Africa')==country);if(province)l=l.filter(s=>U(s.userId).province==province);if(town)l=l.filter(s=>U(s.userId).town.toLowerCase().includes(town.toLowerCase()));
- if(t)l=l.filter(s=>(s.name+' '+s.description).toLowerCase().includes(t.toLowerCase()));if(following)l=l.filter(s=>(db.follows||[]).some(f=>f.followerId==q.u.id&&f.followingId==s.userId));
+ if(t)l=l.filter(s=>matchQ([s.name,s.description,U(s.userId).name],t));if(minrating){const m=+minrating;l=l.filter(s=>{const o=avg(db.ratings.filter(r=>r.rateeId==s.userId).map(r=>r.memberStars)),f=avg(db.ratings.filter(r=>r.strainId==s.id).map(r=>r.flowerStars));return Math.max(o||0,f||0)>=m})}if(following)l=l.filter(s=>(db.follows||[]).some(f=>f.followerId==q.u.id&&f.followingId==s.userId));
  const d=s=>near(U(s.userId),q.u);
  l=l.map(s=>({...pubS(s),distance:NEAR[d(s)]}));
  l.sort(q.query.sort=='rating'?(a,b)=>(b.flowerRating||0)-(a.flowerRating||0):(a,b)=>NEAR.indexOf(a.distance)-NEAR.indexOf(b.distance)||(b.owner.rating||0)-(a.owner.rating||0));r.json(l)});
 const P=()=>db.posts=db.posts||[],C=()=>db.comments=db.comments||[];
+const nzQ=x=>String(x||'').toLowerCase().replace(/[^a-z0-9]/g,''),SYNQ={nl:'northernlights',dp:'durbanpoison',ww:'whitewidow',ogk:'ogkush'};
+const matchQ=(parts,q)=>{let qn=nzQ(q);if(!qn)return true;qn=SYNQ[qn]||qn;const hay=nzQ(parts.join(' '));const toks=String(q).toLowerCase().split(/[^a-z0-9]+/).filter(x=>x.length>1).map(x=>SYNQ[x]||nzQ(x).replace(/s$/,''));return hay.includes(qn)||toks.length&&toks.every(t=>hay.includes(t))};
 const pubP=(p,uid)=>({...p,held:!!p.modHeld,likes:p.likes.length,liked:p.likes.includes(uid),comments:C().filter(c=>c.postId==p.id).length,author:pubUv(U(p.userId),uid),strain:p.strainId&&S(p.strainId)&&!S(p.strainId).removed?pubS(S(p.strainId)):null});
-app.get('/api/feed',auth,grower,(q,r)=>{const{type,method,organic,province,town,lab,q:t,country,following}=q.query;let l=P().filter(p=>U(p.userId)&&!U(p.userId).banned&&!heldFor(p,q.u.id,q.u.admin));
+app.get('/api/feed',auth,grower,(q,r)=>{const{type,method,organic,province,town,lab,q:t,country,following,minrating}=q.query;let l=P().filter(p=>U(p.userId)&&!U(p.userId).banned&&!heldFor(p,q.u.id,q.u.admin));
  const sf=type||method||organic||lab;if(sf)l=l.filter(p=>{const x=p.strainId&&S(p.strainId);return x&&x.active&&(!type||x.type==type)&&(!method||x.method==method)&&(!organic||x.organic)&&(!lab||x.coa)});
  if(country)l=l.filter(p=>(U(p.userId).country||'South Africa')==country);if(province)l=l.filter(p=>U(p.userId).province==province);if(town)l=l.filter(p=>U(p.userId).town.toLowerCase().includes(town.toLowerCase()));
- if(t)l=l.filter(p=>(p.text+' '+(p.strainId?S(p.strainId).name:'')).toLowerCase().includes(t.toLowerCase()));if(following)l=l.filter(p=>(db.follows||[]).some(f=>f.followerId==q.u.id&&f.followingId==p.userId));
- l=l.sort((a,b)=>b.at-a.at);if(q.query.sort=='near'){const d=p=>near(U(p.userId),q.u);l.sort((a,b)=>d(a)-d(b)||b.at-a.at)}
+ if(t)l=l.filter(p=>matchQ([p.text,p.strainId?S(p.strainId).name:'',U(p.userId).name],t));if(minrating){const m=+minrating;l=l.filter(p=>{const o=avg(db.ratings.filter(r=>r.rateeId==p.userId).map(r=>r.memberStars)),x=p.strainId?avg(db.ratings.filter(r=>r.strainId==p.strainId).map(r=>r.flowerStars)):null;return Math.max(o||0,x||0)>=m})}if(following)l=l.filter(p=>(db.follows||[]).some(f=>f.followerId==q.u.id&&f.followingId==p.userId));
+ l=l.sort((a,b)=>b.at-a.at);if(q.query.sort=='rating')l.sort((a,b)=>(avg(db.ratings.filter(r=>r.rateeId==b.userId).map(r=>r.memberStars))||0)-(avg(db.ratings.filter(r=>r.rateeId==a.userId).map(r=>r.memberStars))||0)||b.at-a.at);if(q.query.sort=='near'){const d=p=>near(U(p.userId),q.u);l.sort((a,b)=>d(a)-d(b)||b.at-a.at)}
  r.json(l.slice(0,100).map(p=>pubP(p,q.u.id)))});
 app.post('/api/posts',auth,grower,up.array('photos',20),toDb,(q,r)=>{const text=(q.body.text||'').trim().slice(0,3000),photos=(q.files||[]).map(f=>'/uploads/'+f.filename);if(!text&&!photos.length)return r.status(400).json({error:'Write something or add a photo'});
  const cid=(q.body.clientId||'').slice(0,64),dup=P().find(p=>p.userId==q.u.id&&((cid&&p.clientId==cid)||(!p.strainId&&p.text==text&&p.photos.length==photos.length&&Date.now()-p.at<60000)));
