@@ -84,3 +84,14 @@ body.in-chat #app{padding-bottom:0}
 .searchbar{max-width:100%}.searchbar input{min-width:0}
 .browsehead .tabs2 a{padding:8px 12px}.browsehead .searchbar input{padding:9px 14px}
 .filters>*{flex:0 0 auto}.filters select{max-width:62vw}
+
+/* in-app photo/COA viewer */
+.viewer{position:fixed;inset:0;z-index:60;background:rgba(0,0,0,.96);display:flex;flex-direction:column}
+.vbar{display:flex;align-items:center;gap:10px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:#0a0a0a;border-bottom:1px solid #222}
+.vbar .vt{flex:1;text-align:center;color:#eee;font-size:14px}
+.vbtn{width:48px;height:48px;flex:0 0 auto;border-radius:50%;border:1px solid #444;background:#1c1c1c;color:#fff;font-size:22px;line-height:1}
+.vbody{flex:1;display:flex;align-items:center;justify-content:center;overflow:auto;padding:12px;padding-bottom:calc(12px + env(safe-area-inset-bottom))}
+.vbody img{max-width:100%;max-height:100%;object-fit:contain}
+.vbody iframe{width:100%;height:100%;border:0;background:#fff}
+.gal img{cursor:zoom-in}img.av{cursor:zoom-in}
+button.chip{border:0;font:inherit;cursor:pointer}

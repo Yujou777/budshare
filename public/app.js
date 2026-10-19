@@ -44,6 +44,20 @@ const terms=`<div class="pad"><h2>Bud Share terms</h2><div class="disc">⚠️ $
 <li><b>Honest dealing.</b> Send what you agreed and share real tracking details. If a partner reports your parcel as not received 3 times, your account is deleted.</li>
 <li>Ratings must be honest and only come from members who actually received the flower.</li>
 <li>Bud Share is a meeting place for growers and does not handle, check or transport any product.</li></ol></div>`;
+// ---------- in-app photo / COA viewer (overlay; never navigates away)
+let viewerOn=false;
+function openViewer(src){if(!src)return;closeViewer(1);viewerOn=true;const isPdf=/\.pdf($|\?)/i.test(src);
+ const v=document.createElement('div');v.className='viewer';v.id='viewer';
+ v.innerHTML=`<div class="vbar"><button type="button" class="vbtn" id="vback" aria-label="Back">←</button><span class="vt">${isPdf?'Certificate of Analysis':'Photo'}</span><button type="button" class="vbtn" id="vclose" aria-label="Close">✕</button></div><div class="vbody">${isPdf?`<iframe src="${esc(src)}" title="COA"></iframe>`:`<img src="${esc(src)}" alt="">`}</div>`;
+ document.body.append(v);document.body.style.overflow='hidden';
+ try{history.pushState({bsViewer:1},'')}catch(e){}
+ const done=()=>closeViewer();v.querySelector('#vclose').onclick=()=>{if(history.state&&history.state.bsViewer)history.back();else closeViewer()};
+ v.querySelector('#vback').onclick=v.querySelector('#vclose').onclick;
+ v.querySelector('.vbody').onclick=e=>{if(e.target.classList.contains('vbody')){if(history.state&&history.state.bsViewer)history.back();else closeViewer()}}}
+function closeViewer(silent){const v=document.getElementById('viewer');if(v)v.remove();if(viewerOn){viewerOn=false;document.body.style.overflow=''}}
+addEventListener('popstate',()=>{if(viewerOn)closeViewer()});
+addEventListener('keydown',e=>{if(e.key=='Escape'&&viewerOn){if(history.state&&history.state.bsViewer)history.back();else closeViewer()}});
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-view]');if(t){e.preventDefault();e.stopPropagation();openViewer(t.dataset.view||t.getAttribute('src'))}});
 // ---------- auth
 async function vAuth(mode='login'){await geo();A.innerHTML=`<div class="hero"><img src="/icon-192.png" width="72" style="border-radius:16px"><h1>Bud Share</h1><div style="opacity:.9">craft growers network</div><div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px"><span>By</span><img src="/whoomph-logo-b70b4539.png" alt="Whoomph" style="height:26px"></div><div style="margin-top:10px;font-size:14px">Grower-to-grower swaps · 18+ · No sales</div></div>
 <div class="tabs2"><a href="#/login" class="${mode=='login'?'on':''}">Log in</a><a href="#/signup" class="${mode=='signup'?'on':''}">Join</a></div><form class="pad" id="f">
@@ -87,7 +101,7 @@ async function vBrowse(){await geo();await loadFol();shell('Bud Share',`<div cla
  load()}
 const ago=t=>{const m=(Date.now()-t)/6e4;return m<1?'now':m<60?Math.floor(m)+'m':m<1440?Math.floor(m/60)+'h':Math.floor(m/1440)+'d'};
 const postHTML=p=>`<div class="card" data-p="${p.id}"><a class="row" style="border:0" href="#/user/${p.author.id}">${av(p.author,'s')}<div class="grow"><div class="t1">${esc(p.author.name)} ${p.author.rating?`<span class="stars">★</span><small>${p.author.rating}</small>`:''}</div><div class="t2">📍 ${esc(p.author.town)} · ${ago(p.at)}</div></div>${folBtn(p.author)}</a>
- ${p.text?`<div style="padding:0 16px 10px;white-space:pre-wrap">${esc(p.text)}</div>`:''}${p.photos.length?`<div class="gal">${p.photos.map(x=>`<img src="${x}" loading="lazy">`).join('')}</div>`:''}
+ ${p.text?`<div style="padding:0 16px 10px;white-space:pre-wrap">${esc(p.text)}</div>`:''}${p.photos.length?`<div class="gal">${p.photos.map(x=>`<img src="${x}" loading="lazy" data-view="${x}">`).join('')}</div>`:''}
  ${p.strain?`<a class="row" href="#/strain/${p.strain.id}" style="background:#f7faf8"><div class="grow"><b>${LEAF()} ${esc(p.strain.name)}</b><div class="chips"><span class="chip">${esc(p.strain.type)}</span><span class="chip">${p.strain.method}</span>${p.strain.organic?'<span class="chip">Organic</span>':''}${p.strain.labTested?'<span class="chip lab">🧪 Lab tested</span>':''}</div></div>${p.userId!=ME.id?'<span class="btn sm" style="margin:0">⇄ Swap</span>':'›'}</a>`:''}
  ${p.held?'<div style="padding:4px 16px"><span class="chip demo">⏳ Held for review – only you can see this post</span></div>':''}<div style="display:flex;gap:4px;padding:6px 10px;border-top:1px solid var(--b)"><button class="btn sm sec lk" style="border:0;${p.liked?'color:#e53935':''}">${p.liked?'❤️':'🤍'} ${p.likes}</button><button class="btn sm sec cm" style="border:0">💬 ${p.comments}</button><button class="btn sm sec sh" style="border:0">📤</button>${p.userId==ME.id?'<button class="btn sm sec dl" style="border:0;margin-left:auto">🗑</button>':''}</div></div>`;
 function bindPosts(reload){document.querySelectorAll('[data-p]').forEach(el=>{const id=el.dataset.p;
@@ -103,8 +117,8 @@ function newPost(){if(document.querySelector('.modal'))return;const m=document.c
 // ---------- strain detail
 async function vStrain(id){await loadFol();let s;try{s=await api('/strains/'+id)}catch(e){return shell('Strain',e.code=='grower_only'?lockMsg():`<p class="pad">${esc(e.message)}</p>`,'browse',1)}
  const rv=await api(`/strains/${id}/reviews`);const mine=s.userId==ME.id;
- shell(esc(s.name),`<div class="gal">${[...s.flowerPhotos,...s.driedPhotos,...s.extraPhotos].map(p=>`<img src="${p}">`).join('')}</div><div class="pad">
- <div class="chips"><span class="chip">${esc(s.type)}</span><span class="chip">${s.method}</span>${s.organic?'<span class="chip">🌱 Organic</span>':''}${s.labTested?`<a class="chip lab" href="${s.coa}" target="_blank">🧪 Lab tested – view COA</a>`:''}${s.demo?'<span class="chip demo">DEMO listing</span>':''}</div>
+ shell(esc(s.name),`<div class="gal">${[...s.flowerPhotos,...s.driedPhotos,...s.extraPhotos].map(p=>`<img src="${p}" data-view="${p}">`).join('')}</div><div class="pad">
+ <div class="chips"><span class="chip">${esc(s.type)}</span><span class="chip">${s.method}</span>${s.organic?'<span class="chip">🌱 Organic</span>':''}${s.labTested?`<button type="button" class="chip lab" data-view="${s.coa}">🧪 Lab tested – view COA</button>`:''}${s.demo?'<span class="chip demo">DEMO listing</span>':''}</div>
  <div>Flower rating: ${stars(s.flowerRating)} <span class="muted">(${s.flowerRatingCount} from swap partners)</span></div><p>${esc(s.description)}</p>
  <div class="muted">📸 In flower: ${s.flowerPhotos.length} · Dried: ${s.driedPhotos.length} · Extra: ${s.extraPhotos.length}</div></div>
  <a class="row" href="#/user/${s.owner.id}">${av(s.owner)}<div class="grow"><div class="t1">${esc(s.owner.name)}</div><div class="t2">📍 ${loc(s.owner)}</div><div>${stars(s.owner.rating)}</div></div>${folBtn(s.owner)}›</a>
@@ -185,7 +199,7 @@ async function vEdit(id){const s=id?await api('/strains/'+id):{};const T=META.ty
  <label>📸 Plant in flower photos ${id?'(add more)':'– at least 1 required'}</label><input type="file" name="flower" accept="image/*" multiple ${id?'':'required'}>${id?`<div class="thumbs">${s.flowerPhotos.map(p=>`<img src="${p}">`).join('')}</div>`:''}
  <label>📸 Dried bud photos ${id?'(add more)':'– at least 1 required'}</label><input type="file" name="dried" accept="image/*" multiple ${id?'':'required'}>${id?`<div class="thumbs">${s.driedPhotos.map(p=>`<img src="${p}">`).join('')}</div>`:''}
  <label>📸 Extra photos (optional, as many as you like)</label><input type="file" name="extra" accept="image/*" multiple>
- <label>🧪 COA / lab certificate (optional, PDF or photo)</label><input type="file" name="coa" accept="image/*,application/pdf">${s.coa?`<a href="${s.coa}" target="_blank">Current COA</a>`:''}
+ <label>🧪 COA / lab certificate (optional, PDF or photo)</label><input type="file" name="coa" accept="image/*,application/pdf">${s.coa?`<button type="button" class="btn sm sec" data-view="${s.coa}">View current COA</button>`:''}
  ${id?`<div class="chk"><input type="checkbox" id="act" ${s.active?'checked':''}><label for="act" style="margin:0">Listing active (visible)</label></div>`:''}
  <button class="btn" id="sv">${id?'Save':'Publish listing'}</button>${id?'<button type="button" class="btn red" id="del">Remove listing</button>':''}</form>`,'strains',1);
  $('#f').onsubmit=async e=>{e.preventDefault();const fd=await shrinkForm(e.target);fd.set('organic',e.target.organic.checked);if(id)fd.set('active',$('#act').checked);$('#sv').disabled=true;$('#sv').textContent='Uploading…';
