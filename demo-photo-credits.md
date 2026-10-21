@@ -1,0 +1,26 @@
+# Demo listing photo credits
+
+Real cannabis photos used to replace the placeholder images on the Bud Share demo listings and demo feed post. All from Wikimedia Commons under free licences that allow reuse (CC0, public domain, CC BY, CC BY-SA). Images were resized to max 1200 px and re-encoded as JPEG; no other changes. CC BY / CC BY-SA require attribution to the author with a link to the licence.
+
+| File (public/demo/) | Used for | Source | Author | Licence |
+|---|---|---|---|---|
+| durbanpoison-f.jpg | Durban Poison – in-flower photo | [Cannabis bloom.JPG](https://commons.wikimedia.org/wiki/File:Cannabis_bloom.JPG) | Rob Duval | CC0 ([licence](http://creativecommons.org/publicdomain/zero/1.0/deed.en)) |
+| durbanpoison-d.jpg | Durban Poison – dried bud photo | [Marijuana-Cannabis-Weed-Bud-Gram.jpg](https://commons.wikimedia.org/wiki/File:Marijuana-Cannabis-Weed-Bud-Gram.jpg) | Evan-Amos | Public domain |
+| purplehaze-f.jpg | Purple Haze – in-flower photo | [RBOG.jpg](https://commons.wikimedia.org/wiki/File:RBOG.jpg) | Beeblebrox | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| purplehaze-d.jpg | Purple Haze – dried bud photo | [Dosidos Cannabis Strain, grown by Archive.jpg](https://commons.wikimedia.org/wiki/File:Dosidos_Cannabis_Strain,_grown_by_Archive.jpg) | Forcefield21 | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| northernlights-f.jpg | Northern Lights – in-flower photo | [Flowering Early Skunk Cannabis Sativa.jpg](https://commons.wikimedia.org/wiki/File:Flowering_Early_Skunk_Cannabis_Sativa.jpg) | Botanica | CC BY 4.0 ([licence](https://creativecommons.org/licenses/by/4.0)) |
+| northernlights-d.jpg | Northern Lights – dried bud photo | [Rude Boi OG - Rose Bud Growers.jpg](https://commons.wikimedia.org/wiki/File:Rude_Boi_OG_-_Rose_Bud_Growers.jpg) | Forcefield21 | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| swazigold-f.jpg | Swazi Gold – in-flower photo | [Flowering White Skunk Cannabis Sativa.jpg](https://commons.wikimedia.org/wiki/File:Flowering_White_Skunk_Cannabis_Sativa.jpg) | Botanica | CC BY 4.0 ([licence](https://creativecommons.org/licenses/by/4.0)) |
+| swazigold-d.jpg | Swazi Gold – dried bud photo | [White Tahoe Cookie.jpg](https://commons.wikimedia.org/wiki/File:White_Tahoe_Cookie.jpg) | Beeblebrox | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| bluedream-f.jpg | Blue Dream – in-flower photo | [Cannabis (Sour Diesel) Flower.jpg](https://commons.wikimedia.org/wiki/File:Cannabis_(Sour_Diesel)_Flower.jpg) | Alapoet | CC BY 3.0 ([licence](https://creativecommons.org/licenses/by/3.0)) |
+| bluedream-d.jpg | Blue Dream – dried bud photo | [Presidential Kush Cannabis Strain.jpg](https://commons.wikimedia.org/wiki/File:Presidential_Kush_Cannabis_Strain.jpg) | Forcefield21 | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| malawigold-f.jpg | Malawi Gold – in-flower photo | [Mature cannabis plant.jpg](https://commons.wikimedia.org/wiki/File:Mature_cannabis_plant.jpg) | My 420 Tours | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| malawigold-d.jpg | Malawi Gold – dried bud photo | [Macro cannabis bud.jpg](https://commons.wikimedia.org/wiki/File:Macro_cannabis_bud.jpg) | HighInBC - Attribute to yogi Bushby | CC BY 2.5 ([licence](https://creativecommons.org/licenses/by/2.5)) |
+| gorillaglue-f.jpg | Gorilla Glue – in-flower photo | [Cannabis Closeup 01.jpg](https://commons.wikimedia.org/wiki/File:Cannabis_Closeup_01.jpg) | Felix Bildstein | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| gorillaglue-d.jpg | Gorilla Glue – dried bud photo | [Wedding Cake Cannabis Strain.jpg](https://commons.wikimedia.org/wiki/File:Wedding_Cake_Cannabis_Strain.jpg) | Forcefield21 | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| pondomist-f.jpg | Pondo Mist – in-flower photo | [Cannabis tree.1.jpg](https://commons.wikimedia.org/wiki/File:Cannabis_tree.1.jpg) | Kabelo bokaba | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| pondomist-d.jpg | Pondo Mist – dried bud photo | [Cannabis Nug.jpg](https://commons.wikimedia.org/wiki/File:Cannabis_Nug.jpg) | Phillip Gallant | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| gelato-f.jpg | Gelato – in-flower photo | [Mother plants in flower.jpg](https://commons.wikimedia.org/wiki/File:Mother_plants_in_flower.jpg) | Beeblebrox | CC BY-SA 4.0 ([licence](https://creativecommons.org/licenses/by-sa/4.0)) |
+| gelato-d.jpg | Gelato – dried bud photo | [Cannabis macro.JPG](https://commons.wikimedia.org/wiki/File:Cannabis_macro.JPG) | Garretttaggs55 | CC BY-SA 3.0 ([licence](https://creativecommons.org/licenses/by-sa/3.0)) |
+| grow1.jpg | Demo feed post #250 (Ayesha) – photo 1 | [Flowering hemp top.jpg](https://commons.wikimedia.org/wiki/File:Flowering_hemp_top.jpg) | unknown | Public domain |
+| grow2.jpg | Demo feed post #250 (Ayesha) – photo 2 | [Cannabis sativa plant (4).JPG](https://commons.wikimedia.org/wiki/File:Cannabis_sativa_plant_(4).JPG) | Chmee2 | CC BY 3.0 ([licence](https://creativecommons.org/licenses/by/3.0)) |

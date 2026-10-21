@@ -272,6 +272,8 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
  db.users.forEach(u=>{code(u);if(!u.country)u.country='South Africa'});
  {let n=0;db.messages.forEach(m=>{if(!m.pair){const k=swapPair(m.swapId);if(k){m.pair=k;n++}}});if(n){console.log('conv-migrate: tagged',n,'messages with pair key');save()}}
+ {const demoU=new Set(db.users.filter(u=>u.demo||/@demo\.budshare$/.test(u.email||'')).map(u=>u.id));const map=x=>{const m=/^\/uploads\/demo\/([a-z0-9]+(?:-[fd])?)\.svg$/.exec(x||'');return m&&fs.existsSync(path.join(__dirname,'public/demo',m[1]+'.jpg'))?'/demo/'+m[1]+'.jpg':x};let n=0;const fix=a=>(a||[]).map(x=>{const y=map(x);if(y!==x)n++;return y});
+  db.strains.forEach(s=>{if(!s.demo||!demoU.has(s.userId))return;s.flowerPhotos=fix(s.flowerPhotos);s.driedPhotos=fix(s.driedPhotos)});(db.posts||[]).forEach(p=>{if(demoU.has(p.userId))p.photos=fix(p.photos)});if(n){console.log('demo-photos: replaced',n,'placeholder images with real photos');save()}}
  if(process.env.RESET_EMAIL&&process.env.RESET_PASSWORD){const ru=db.users.find(u=>u.email==process.env.RESET_EMAIL.trim().toLowerCase());if(ru&&!bcrypt.compareSync(process.env.RESET_PASSWORD,ru.pw)){ru.pw=bcrypt.hashSync(process.env.RESET_PASSWORD,10);console.log('Member password reset from env')}else if(!ru)console.log('RESET_EMAIL not found')}
  if(process.env.ADMIN_PASSWORD){const ad=db.users.find(u=>u.admin);if(ad&&!bcrypt.compareSync(process.env.ADMIN_PASSWORD,ad.pw)){ad.pw=bcrypt.hashSync(process.env.ADMIN_PASSWORD,10);console.log('Admin password synced from env')}}
  if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
