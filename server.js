@@ -3,7 +3,7 @@ const DBF=path.join(__dirname,'data/db.json');
 const store=require('./store');let db={users:[],strains:[],swaps:[],messages:[],ratings:[],reports:[],posts:[],comments:[],seq:1};
 const save=()=>store.pg?store.save(db):fs.writeFileSync(DBF,JSON.stringify(db));const id=()=>db.seq++;
 const DISCLAIMER="Swap at your own risk. Cannabis laws differ by country and region — only swap where it is legal for you. Bud Share does not allow sales.";const REPORT_LIMIT=3,TYPES=['Indica','Sativa','Indica-leaning hybrid','Sativa-leaning hybrid','50/50'],METHODS=['Indoor','Outdoor','Greenhouse'];
-const app=express();app.set('trust proxy',1);app.use(express.json());
+const app=express();app.set('trust proxy',1);app.use((q,r,n)=>{const h=(q.hostname||'').toLowerCase();if(h!=='app.budshare.co.za'&&/(^|\.)budshare\.(co\.za|net|org)$/.test(h))return r.redirect(301,'https://app.budshare.co.za'+q.originalUrl);n()});app.use(express.json());
 app.use(session({name:'bs',keys:[process.env.SECRET||'budshare-dev-secret'],maxAge:30*864e5,sameSite:'lax'}));
 app.use((q,r,n)=>{r.set('X-Robots-Tag','noindex, nofollow, noarchive');n()});
 app.get('/healthz',(q,r)=>r.send('ok'));
@@ -167,7 +167,7 @@ function modLog(kind,contentId,authorId,text,scan,status,extra={}){db.modflags=d
 function photoFlag(kind,contentId,authorId,photos){if(!photos||!photos.length)return;modLog(kind,contentId,authorId,'[photo upload – not auto-scanned]',{action:'flag',category:'Photo (manual review – photos are not auto-scanned)',score:1,terms:['photo upload']},'photo',{photos})}
 const heldFor=(item,uid,admin)=>!!item.modHeld&&item.userId!=uid&&!admin;
 // ---------- notifications (Web Push + optional email fallback behind a provider interface)
-const webpush=require('web-push');const VAPID={pub:process.env.VAPID_PUBLIC_KEY,priv:process.env.VAPID_PRIVATE_KEY,subj:process.env.VAPID_SUBJECT||'https://budshare.onrender.com'};
+const webpush=require('web-push');const VAPID={pub:process.env.VAPID_PUBLIC_KEY,priv:process.env.VAPID_PRIVATE_KEY,subj:process.env.VAPID_SUBJECT||'https://app.budshare.co.za'};
 if(VAPID.pub&&VAPID.priv)webpush.setVapidDetails(VAPID.subj,VAPID.pub,VAPID.priv);
 const NTYPES={message:'New chat messages',offer:'New swap offers',counter:'Counter-offers',agreed:'Deal agreed',courier:'Courier / tracking shared',received:'Parcel marked received / not received',rating:'New ratings',follow:'Someone follows you',moderation:'Moderation decisions about your content',admin:'Admin: new reports & reviews'};
 const nprefs=u=>{const p=u.notif||{};const types={};for(const k in NTYPES)types[k]=p.types?.[k]!==false;return{types,previews:p.previews!==false,email:!!p.email}};
@@ -189,7 +189,7 @@ const bursts=new Map();
 function notify(uid,type,{title,body,url,tag,from}){const u=U(uid);if(!u||u.banned)return;const p=nprefs(u);if(!p.types[type])return;
  const t=p.previews?title:'Bud Share',b=p.previews?body:'You have a new notification';const k=uid+'|'+tag,now=Date.now(),st=bursts.get(k);
  const fire=(n)=>{const payload={title:t,body:n>1&&p.previews?`${n} new updates – latest: ${b}`:n>1?`${n} new notifications`:b,url,tag,ts:Date.now()};
-  if(!VAPID.pub)return;pushTo(uid,payload).then(sent=>{if(!sent&&p.email)sendEmail(u,'Bud Share: '+payload.title,payload.body+'\n\nOpen Bud Share: https://budshare.onrender.com/'+(url||''))})};
+  if(!VAPID.pub)return;pushTo(uid,payload).then(sent=>{if(!sent&&p.email)sendEmail(u,'Bud Share: '+payload.title,payload.body+'\n\nOpen Bud Share: https://app.budshare.co.za/'+(url||''))})};
  if(st&&now-st.at<20000){st.n++;st.last=b;if(!st.timer)st.timer=setTimeout(()=>{const x=bursts.get(k);bursts.set(k,{at:Date.now(),n:0});if(x&&x.n)fire(x.n+0)},20000-(now-st.at));return}
  bursts.set(k,{at:now,n:0});fire(1)}
 function notifyMsg(m){if(m.modHeld)return;const w=db.swaps.find(x=>x.id==m.swapId);if(!w)return;const to=m.userId==w.aId?w.bId:w.aId,from=U(m.userId);if(!from)return;if(viewing(to,m.userId))return;
