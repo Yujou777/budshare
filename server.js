@@ -272,6 +272,7 @@ app.use((e,q,r,n)=>r.status(500).json({error:e.message}));
  else{if(!fs.existsSync(DBF))require('child_process').execSync('node seed.js',{cwd:__dirname,stdio:'inherit'});db=JSON.parse(fs.readFileSync(DBF))}
  db.users.forEach(u=>{code(u);if(!u.country)u.country='South Africa'});
  {let n=0;db.messages.forEach(m=>{if(!m.pair){const k=swapPair(m.swapId);if(k){m.pair=k;n++}}});if(n){console.log('conv-migrate: tagged',n,'messages with pair key');save()}}
+ if(process.env.RESET_EMAIL&&process.env.RESET_PASSWORD){const ru=db.users.find(u=>u.email==process.env.RESET_EMAIL.trim().toLowerCase());if(ru&&!bcrypt.compareSync(process.env.RESET_PASSWORD,ru.pw)){ru.pw=bcrypt.hashSync(process.env.RESET_PASSWORD,10);console.log('Member password reset from env')}else if(!ru)console.log('RESET_EMAIL not found')}
  if(process.env.ADMIN_PASSWORD){const ad=db.users.find(u=>u.admin);if(ad&&!bcrypt.compareSync(process.env.ADMIN_PASSWORD,ad.pw)){ad.pw=bcrypt.hashSync(process.env.ADMIN_PASSWORD,10);console.log('Admin password synced from env')}}
  if(!db.secret){db.secret=crypto.randomBytes(8).toString('hex')}save();
  app.listen(process.env.PORT||3300,()=>console.log('Bud Share on',process.env.PORT||3300))})();
