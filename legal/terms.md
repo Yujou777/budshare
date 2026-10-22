@@ -23,12 +23,12 @@ Bud Share is operated by:
 | Trading name / brand | Bud Share – craft growers network, By Whoomph |
 | Physical address (for service of legal documents) | 173 Buitenkant Street, Gardens, Cape Town, South Africa |
 | Postal address | 173 Buitenkant Street, Gardens, Cape Town, South Africa |
-| Telephone | [CONTACT TELEPHONE NUMBER] |
-| Email | [CONTACT EMAIL] |
+| Telephone | 066 478 9677 |
+| Email | hello@budshare.co.za |
 | Website | https://app.budshare.co.za (or such other address as we notify) |
 | Directors / office bearers | Anthony Cohen |
-| Self-regulatory or professional body (if any) | [SELF-REGULATORY BODY, or "None"] |
-| Information Officer (POPIA) | [INFORMATION OFFICER NAME], [INFORMATION OFFICER EMAIL] |
+| Self-regulatory or professional body (if any) | None |
+| Information Officer (POPIA) | Anthony Cohen, hello@budshare.co.za |
 
 **Price and payment:** Bud Share is free to use. We charge no fees, and no money or other payment may change hands on or through Bud Share (see section 5). Because no goods or services are sold to you, the ECT Act's provisions on payment systems, delivery and the cooling-off right in section 44 do not apply. Our Privacy Policy (section 20) explains how we handle your personal information.
 
@@ -159,7 +159,7 @@ with an optional note. You can only report the same member for the same reason o
 
 10.3 **Admin review.** All other reports go to our admin team for review. We may take any action we consider reasonable, including warning, restricting, suspending or removing the member, or removing content. We aim to act fairly and in proportion to what happened, but we are not obliged to investigate every report or to give reasons.
 
-10.4 If you believe you were removed in error, contact us at [CONTACT EMAIL] within 30 days. We will review the matter. Our decision after review is final, without affecting any rights you have in law.
+10.4 If you believe you were removed in error, contact us at hello@budshare.co.za within 30 days. We will review the matter. Our decision after review is final, without affecting any rights you have in law.
 
 10.5 False, malicious or retaliatory reports are a breach of these Terms.
 
@@ -214,9 +214,9 @@ We may keep and disclose information, including content and account details, if 
 
 ## 15. Accounts, security and leaving Bud Share
 
-15.1 Keep your password confidential. You are responsible for activity on your account. Tell us at once at [CONTACT EMAIL] if you suspect unauthorised use.
+15.1 Keep your password confidential. You are responsible for activity on your account. Tell us at once at hello@budshare.co.za if you suspect unauthorised use.
 
-15.2 You may stop using Bud Share at any time. To close your account and have your data deleted, email [CONTACT EMAIL] from your registered email address. See the Privacy Policy for what we keep and why.
+15.2 You may stop using Bud Share at any time. To close your account and have your data deleted, email hello@budshare.co.za from your registered email address. See the Privacy Policy for what we keep and why.
 
 15.3 **We may suspend or terminate your account, or restrict features, at any time** if:
 - you breach these Terms, especially sections 3, 5, 6 and 11;
@@ -282,7 +282,7 @@ Our **Privacy Policy** explains how we collect, use, share and protect your pers
 
 21.2 **Electronic communications.** You agree that we may communicate with you electronically (in the app or by email). Electronic notices, agreements and records satisfy any requirement for writing, in line with the ECT Act. Ticking the sign-up boxes is your electronic acceptance of these Terms.
 
-21.3 **Legal notices to us** must be sent to [CONTACT EMAIL] and to our physical address at 173 Buitenkant Street, Gardens, Cape Town, South Africa, which we choose as our *domicilium citandi et executandi*. Notices to you will be sent to the email address on your account.
+21.3 **Legal notices to us** must be sent to hello@budshare.co.za and to our physical address at 173 Buitenkant Street, Gardens, Cape Town, South Africa, which we choose as our *domicilium citandi et executandi*. Notices to you will be sent to the email address on your account.
 
 21.4 **Entire agreement.** These Terms, the Privacy Policy, and any in-app rules or notices together are the whole agreement between you and us about Bud Share.
 
@@ -292,9 +292,9 @@ Our **Privacy Policy** explains how we collect, use, share and protect your pers
 
 21.7 **Assignment.** You may not transfer your rights under these Terms. We may transfer ours, for example to a successor operator of Bud Share, on notice to you.
 
-21.8 **Disputes.** Please contact us first at [CONTACT EMAIL] so we can try to resolve any complaint informally. Complaints are not handled by the Information Regulator unless they are about personal information; for those, see the Privacy Policy.
+21.8 **Disputes.** Please contact us first at hello@budshare.co.za so we can try to resolve any complaint informally. Complaints are not handled by the Information Regulator unless they are about personal information; for those, see the Privacy Policy.
 
 ---
 
 *Bud Share – craft growers network. By Whoomph.*
-*Whoomph (Pty) Ltd · 2019/118107/07 · 173 Buitenkant Street, Gardens, Cape Town, South Africa · [CONTACT EMAIL]*
+*Whoomph (Pty) Ltd · 2019/118107/07 · 173 Buitenkant Street, Gardens, Cape Town, South Africa · hello@budshare.co.za*

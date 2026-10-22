@@ -21,10 +21,10 @@ Please read it together with our Terms of Use.
 |---|---|
 | Responsible party ("controller") | Whoomph (Pty) Ltd, registration number 2019/118107/07 |
 | Address | 173 Buitenkant Street, Gardens, Cape Town, South Africa |
-| Contact email | [CONTACT EMAIL] |
-| Information Officer | [INFORMATION OFFICER NAME] |
-| Information Officer email | [INFORMATION OFFICER EMAIL] |
-| Information Regulator registration | [INFORMATION OFFICER REGISTRATION REFERENCE, once registered] |
+| Contact email | hello@budshare.co.za |
+| Information Officer | Anthony Cohen |
+| Information Officer email | hello@budshare.co.za |
+| Information Regulator registration | registration pending |
 
 For all privacy questions and requests, contact the Information Officer.
 
@@ -161,7 +161,7 @@ Where we rely on consent, you can withdraw it at any time (section 10). Withdraw
 |---|---|---|
 | **Render** (Render Services, Inc.) | Application hosting, server logs | Frankfurt, Germany (EU) |
 | **Supabase** (Supabase, Inc.) | Postgres database, which also holds uploaded photos and COAs | Zurich, Switzerland (AWS eu-central-2) |
-| **GitHub** (GitHub, Inc.) | Source-code hosting only – no member data | [CONFIRM: no member data stored] |
+| **GitHub** (GitHub, Inc.) | Source-code hosting only – no member data | United States |
 
 **Third parties you choose to use**
 - Couriers – you deal with them directly.
@@ -191,9 +191,9 @@ International members' information is processed in the same locations.
 | Account, profile, listings, posts | While your account is active. Deleted within 30 days after you ask us to close your account, except as below |
 | Chat messages, swaps, courier details | While either member's account is active, because they also belong to the other member's history. On deletion we remove or anonymise your name from them where practical |
 | Ratings | Kept as part of strain/member averages; your identity is removed when your account is deleted |
-| Reports and removal records (including banned members' email) | Up to [RETENTION PERIOD, e.g. 3 years] after the last action, to prevent banned members re-joining and to defend claims |
+| Reports and removal records (including banned members' email) | Up to 3 years after the last action, to prevent banned members re-joining and to defend claims |
 | Date of birth and 18+ declaration | While your account is active |
-| Server and security logs | Generally up to [LOG RETENTION, e.g. 30–90 days], depending on provider settings |
+| Server and security logs | Generally up to 90 days, depending on provider settings |
 | Backups | Overwritten on the provider's backup cycle |
 
 We may keep information longer where the law requires it, or for an ongoing dispute or investigation (POPIA s14).
@@ -219,7 +219,7 @@ Please:
 
 ## 9. Children
 
-Bud Share is strictly for **adults aged 18 and over**. We do not knowingly collect information from anyone under 18. If we learn that an under-18 person has joined, we will delete their account and information, except for a minimal record to prevent re-registration. Report suspected under-18 members using **Report → Under 18**, or email [CONTACT EMAIL].
+Bud Share is strictly for **adults aged 18 and over**. We do not knowingly collect information from anyone under 18. If we learn that an under-18 person has joined, we will delete their account and information, except for a minimal record to prevent re-registration. Report suspected under-18 members using **Report → Under 18**, or email hello@budshare.co.za.
 
 ## 10. Your rights
 
@@ -232,7 +232,7 @@ Under POPIA (and the GDPR where it applies to you) you have the right to:
 - **For GDPR-covered members, additionally** – data portability, restriction of processing, and the right to complain to your local data-protection authority.
 
 **To exercise your rights:**
-- email [INFORMATION OFFICER EMAIL] from your registered email address;
+- email hello@budshare.co.za from your registered email address;
 - we may ask you to verify your identity;
 - we will respond within a reasonable time, and generally within 30 days;
 - requests are free, except where the law allows a prescribed fee for access to records.
@@ -262,9 +262,9 @@ We may update this Policy, for example when we add new features. We will:
 
 ## 13. Contact
 
-[INFORMATION OFFICER NAME], Information Officer
+Anthony Cohen, Information Officer
 Whoomph (Pty) Ltd · 173 Buitenkant Street, Gardens, Cape Town, South Africa
-[INFORMATION OFFICER EMAIL] · [CONTACT EMAIL]
+hello@budshare.co.za · hello@budshare.co.za
 
 ---
 
