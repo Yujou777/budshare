@@ -95,3 +95,5 @@ body.in-chat #app{padding-bottom:0}
 .vbody iframe{width:100%;height:100%;border:0;background:#fff}
 .gal img{cursor:zoom-in}img.av{cursor:zoom-in}
 button.chip{border:0;font:inherit;cursor:pointer}
+.legal{padding:14px 16px 40px;font-size:14px;line-height:1.5}.legal h1{font-size:22px;color:#25D366}.legal h2{font-size:17px;color:#25D366;margin-top:22px}.legal h3{font-size:15px}.legal table{border-collapse:collapse;width:100%;font-size:12.5px;display:block;overflow-x:auto}.legal td,.legal th{border:1px solid #333;padding:5px;vertical-align:top}.legal th{background:#10241a}.legal a{color:#25D366}.legal hr{border:0;border-top:1px solid #222}
+.legalfoot{text-align:center;font-size:13px}.legalfoot a,.chk label a{color:#25D366}
