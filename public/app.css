@@ -33,7 +33,7 @@ label{display:block;font-size:13px;color:var(--m);margin:12px 0 4px}input,select
 .thumbs{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}.thumbs img{width:56px;height:56px;object-fit:cover;border-radius:6px}
 
 .brand{display:block;line-height:1.15}.brand b{font-size:28px}.brand .tag{font-weight:400;font-size:14px;opacity:.85}.brand small{display:block;font-size:11px;font-weight:400;margin-top:3px}
-.brand small{display:flex;align-items:center;gap:6px;opacity:1}.wlogo{height:22px;width:auto;display:block}
+.brand small{display:flex;align-items:center;gap:6px;opacity:1}.wlogo{height:18.7px;width:auto;display:block}
 img.lf{height:1.15em!important;width:auto!important;aspect-ratio:auto!important;display:inline-block!important;vertical-align:-0.2em;object-fit:contain}.lf-nav{height:24px;width:24px;display:block;margin:0 auto 1px}
 /* ---- dark theme preview ---- */
 :root{--bg:#000;--chat:#0b0b0b;--me:#0f3d2e;--t:#e9edef;--m:#9aa5ab;--b:#222}
