@@ -8,7 +8,7 @@ app.use(session({name:'bs',keys:[process.env.SECRET||'budshare-dev-secret'],maxA
 app.get('/healthz',(q,r)=>r.send('ok'));
 app.get('/robots.txt',(q,r)=>r.type('text/plain').send('User-agent: *\nAllow: /\nDisallow: /api/\n'));
 const SU=process.env.SITE_USER,SP=process.env.SITE_PASS,GATE=SU&&SP?crypto.createHmac('sha256',SP).update('gate:'+SU).digest('hex'):null;
-const OPEN=/^\/(healthz|manifest\.json|icon-(maskable-)?(192|512)\.png|apple-touch-icon\.png|favicon\.ico|og-image\.png|whoomph-(logo|badge)(-[0-9a-f]+)?\.png|budshare-emblem\.png|robots\.txt|sw\.js|terms|privacy|legal-(terms|privacy)\.html)$/;
+const OPEN=/^\/(healthz|manifest\.json|icon-(maskable-)?(192|512)\.png|apple-touch-icon\.png|favicon\.ico|og-image\.png|whoomph-(logo|badge)(-[0-9a-f]+)?\.png|budshare-(emblem|mark-96|badge-96)\.png|robots\.txt|sw\.js|terms|privacy|legal-(terms|privacy)\.html)$/;
 const eq=(a,b)=>{a=Buffer.from(String(a));b=Buffer.from(String(b));return a.length==b.length&&crypto.timingSafeEqual(a,b)};
 app.get('/join',(q,r,n)=>{const c=String(q.query.ref||'').toUpperCase().slice(0,20);const u=c&&db.users.find(x=>x.code==c&&!x.banned&&!x.deleted);
  if(!u)return n();if(GATE)r.cookie('bsgate',GATE,{httpOnly:true,secure:q.secure,sameSite:'lax',maxAge:365*864e5});r.redirect(302,'/?ref='+encodeURIComponent(c)+'#/signup')});
