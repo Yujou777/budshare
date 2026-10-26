@@ -17,7 +17,7 @@ function bindLoc(){const c=$('#lc');if(c)c.onchange=()=>{$('#la').innerHTML=area
 const PROV=['Eastern Cape','Free State','Gauteng','KwaZulu-Natal','Limpopo','Mpumalanga','North West','Northern Cape','Western Cape'];
 const opts=(a,sel,blank)=>(blank?`<option value="">${blank}</option>`:'')+a.map(x=>`<option ${x==sel?'selected':''}>${x}</option>`).join('');
 const LEAF=(c='lf')=>'<img src="/whoomph-leaf-fbfc610e.png" alt="" class="'+c+'">';
-const BRAND=`<span class="brand"><b>Bud Share</b> <span class="tag">– craft growers network</span><small>By <img src="/whoomph-logo-b70b4539.png" alt="Whoomph" class="wlogo"></small></span>`;
+const BRAND=`<span class="brand"><b><img src="/budshare-emblem.png?v=1793013801" alt="" class="bsmark">Bud Share</b> <span class="tag">– craft growers network</span><small>By <img src="/whoomph-logo-b70b4539.png" alt="Whoomph" class="wlogo"></small></span>`;
 function shell(title,body,tab,back){clearInterval(poll);document.body.classList.remove('in-chat');A.innerHTML=`<header>${back?`<button onclick="history.back()">‹</button>`:''}<h1>${title=='Bud Share'?BRAND:title}</h1></header>${body}`+(ME?`<nav>
  <a href="#/browse" class="${tab=='browse'?'on':''}"><span>${LEAF('lf-nav')}</span>Flower</a><a href="#/swaps" class="${tab=='swaps'?'on':''}"><span>💬</span>Swaps${ME.unread?`<i class="badge">${ME.unread}</i>`:''}</a>
  <a href="#/strains" class="${tab=='strains'?'on':''}"><span>${LEAF('lf-nav')}</span>My Strains</a><a href="#/profile" class="${tab=='profile'?'on':''}"><span>👤</span>Profile</a></nav>`:'')}
@@ -60,7 +60,7 @@ addEventListener('popstate',()=>{if(viewerOn)closeViewer()});
 addEventListener('keydown',e=>{if(e.key=='Escape'&&viewerOn){if(history.state&&history.state.bsViewer)history.back();else closeViewer()}});
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-view]');if(t){e.preventDefault();e.stopPropagation();openViewer(t.dataset.view||t.getAttribute('src'))}});
 // ---------- auth
-async function vAuth(mode='login'){await geo();A.innerHTML=`<div class="hero"><img src="/icon-192.png" width="72" style="border-radius:16px"><h1>Bud Share</h1><div style="opacity:.9">craft growers network</div><div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px"><span>By</span><img src="/whoomph-logo-b70b4539.png" alt="Whoomph" style="height:26px"></div><div style="margin-top:10px;font-size:14px">Grower-to-grower swaps · 18+ · No sales</div></div>
+async function vAuth(mode='login'){await geo();A.innerHTML=`<div class="hero"><img src="/budshare-emblem.png?v=1793013801" alt="Bud Share" width="86" height="96" style="display:block;margin:0 auto 4px"><h1>Bud Share</h1><div style="opacity:.9">craft growers network</div><div style="font-size:12px;margin-top:6px;display:flex;align-items:center;justify-content:center;gap:6px"><span>By</span><img src="/whoomph-logo-b70b4539.png" alt="Whoomph" style="height:26px"></div><div style="margin-top:10px;font-size:14px">Grower-to-grower swaps · 18+ · No sales</div></div>
 <div class="tabs2"><a href="#/login" class="${mode=='login'?'on':''}">Log in</a><a href="#/signup" class="${mode=='signup'?'on':''}">Join</a></div><form class="pad" id="f">
 ${mode=='signup'?`<label>Display name</label><input name="name" required><label>Date of birth (must be 18+)</label><input type="date" name="dob" required>
 ${locFields()}<input name="town" required>`:''}
