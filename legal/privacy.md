@@ -1,9 +1,7 @@
 # Bud Share – Privacy Policy
 
-**DRAFT – for review before publication**
-
-**Effective date:** [EFFECTIVE DATE]  
-**Version:** 1.0 (draft)
+**Effective date:** 26 October 2026  
+**Version:** 1.0
 
 Bud Share – craft growers network, *By Whoomph*.
 
