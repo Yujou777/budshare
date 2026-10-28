@@ -8,3 +8,6 @@ uploads/*
 .site_pass
 .database_url
 .vapid
+j.c
+*.cookies
+cookies.txt
